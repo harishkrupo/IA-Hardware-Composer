@@ -319,6 +319,12 @@ int IAHWC::IAHWCLayer::SetBo(gbm_bo* bo) {
   hwc_handle_.hwc_buffer_ = true;
   hwc_handle_.gbm_flags = 0;
 
+  if (layer_usage_ == IAHWC_LAYER_USAGE_CURSOR) {
+    printf("hkps setting cursor layer as dumb buffer\n");
+    fflush(stdout);
+    hwc_handle_.use_dumb_buffer_ = true;
+  }
+
   iahwc_layer_.SetNativeHandle(&hwc_handle_);
 
   return IAHWC_ERROR_NONE;

@@ -94,12 +94,13 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
                                                 bool external_import) {
   if (image_.image_ == 0) {
 #ifdef USE_GL
-    EGLImageKHR image = EGL_NO_IMAGE_KHR;
-    // Note: If eglCreateImageKHR is successful for a EGL_LINUX_DMA_BUF_EXT
-    // target, the EGL will take a reference to the dma_buf.
-    if ((usage_ == kLayerVideo) && total_planes_ > 1) {
-      if (total_planes_ == 2) {
-        const EGLint attr_list_nv12[] = {
+    if (!image_.handle_->use_dumb_buffer_) {
+      EGLImageKHR image = EGL_NO_IMAGE_KHR;
+      // Note: If eglCreateImageKHR is successful for a EGL_LINUX_DMA_BUF_EXT
+      // target, the EGL will take a reference to the dma_buf.
+      if ((usage_ == kLayerVideo) && total_planes_ > 1) {
+        if (total_planes_ == 2) {
+          const EGLint attr_list_nv12[] = {
             EGL_WIDTH,                     static_cast<EGLint>(width_),
             EGL_HEIGHT,                    static_cast<EGLint>(height_),
             EGL_LINUX_DRM_FOURCC_EXT,      static_cast<EGLint>(format_),
@@ -110,11 +111,11 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
             EGL_DMA_BUF_PLANE1_PITCH_EXT,  static_cast<EGLint>(pitches_[1]),
             EGL_DMA_BUF_PLANE1_OFFSET_EXT, static_cast<EGLint>(offsets_[1]),
             EGL_NONE,                      0};
-        image = eglCreateImageKHR(
-            egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
-            static_cast<EGLClientBuffer>(nullptr), attr_list_nv12);
-      } else {
-        const EGLint attr_list_yv12[] = {
+          image = eglCreateImageKHR(
+                                    egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
+                                    static_cast<EGLClientBuffer>(nullptr), attr_list_nv12);
+        } else {
+          const EGLint attr_list_yv12[] = {
             EGL_WIDTH,                     static_cast<EGLint>(width_),
             EGL_HEIGHT,                    static_cast<EGLint>(height_),
             EGL_LINUX_DRM_FOURCC_EXT,      static_cast<EGLint>(format_),
@@ -128,12 +129,12 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
             EGL_DMA_BUF_PLANE2_PITCH_EXT,  static_cast<EGLint>(pitches_[2]),
             EGL_DMA_BUF_PLANE2_OFFSET_EXT, static_cast<EGLint>(offsets_[2]),
             EGL_NONE,                      0};
-        image = eglCreateImageKHR(
-            egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
-            static_cast<EGLClientBuffer>(nullptr), attr_list_yv12);
-      }
-    } else {
-      const EGLint attr_list[] = {
+          image = eglCreateImageKHR(
+                                    egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
+                                    static_cast<EGLClientBuffer>(nullptr), attr_list_yv12);
+        }
+      } else {
+        const EGLint attr_list[] = {
           EGL_WIDTH,                     static_cast<EGLint>(width_),
           EGL_HEIGHT,                    static_cast<EGLint>(height_),
           EGL_LINUX_DRM_FOURCC_EXT,      static_cast<EGLint>(format_),
@@ -141,12 +142,16 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
           EGL_DMA_BUF_PLANE0_PITCH_EXT,  static_cast<EGLint>(pitches_[0]),
           EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
           EGL_NONE,                      0};
-      image =
+        image =
           eglCreateImageKHR(egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
                             static_cast<EGLClientBuffer>(nullptr), attr_list);
+      }
+
+      image_.image_ = image;
+    } else {
+      image_.image_ = (EGLImageKHR)1;
     }
 
-    image_.image_ = image;
 #elif USE_VK
     struct vk_import import;
 
@@ -194,21 +199,34 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
 
   if (image_.texture_ != 0) {
     glBindTexture(target, image_.texture_);
-    glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
-    glBindTexture(target, 0);
+
   } else {
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(target, texture);
-    glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
     if (external_import) {
       glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     }
 
-    glBindTexture(target, 0);
     image_.texture_ = texture;
   }
+
+  if (!image_.handle_->use_dumb_buffer_) {
+    glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
+  } else {
+    const NativeBufferHandler* nbh = resource_manager_->GetNativeBufferHandler();
+    HWCNativeHandle handle = image_.handle_;
+    uint32_t stride;
+    void *map, *ret;
+    int width = handle->meta_data_.width_, height = handle->meta_data_.height_;
+    ret = nbh->Map(handle, 0, 0, width, height, &stride, &map, 0);
+    if (!ret)
+      ETRACE("Unable to map buffer\n");
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, map);
+    nbh->UnMap(handle, map);
+  }
+  glBindTexture(target, 0);
 
   if (!external_import && image_.fb_ == 0) {
     glGenFramebuffers(1, &image_.fb_);
@@ -284,23 +302,27 @@ bool DrmBuffer::CreateFrameBuffer(uint32_t gpu_fd) {
   int ret = 0;
 
   if (image_.handle_->use_dumb_buffer_) {
-    struct drm_mode_create_dumb request;
-    memset(&request, 0, sizeof(request));
-    request.width = width_;
-    request.height = height_;
-    request.bpp = pitches_[0] / width_;
-    request.flags = 0;
-    if (drmIoctl(gpu_fd, DRM_IOCTL_MODE_CREATE_DUMB, &request) < 0) {
-      ETRACE("Cannot create dumb buffer");
-      return false;
-    }
+    // struct drm_mode_create_dumb request;
+    // memset(&request, 0, sizeof(request));
+    // request.width = width_;
+    // request.height = height_;
+    // request.bpp = pitches_[0] / width_;
+    // request.flags = 0;
+    // if (drmIoctl(gpu_fd, DRM_IOCTL_MODE_CREATE_DUMB, &request) < 0) {
+    //   ETRACE("Cannot create dumb buffer");
+    //   return false;
+    // }
 
-    image_.dumb_buffer_handle_ = request.handle;
+    // image_.dumb_buffer_handle_ = request.handle;
+    image_.dumb_buffer_handle_ = image_.handle_->meta_data_.gem_handles_[0];
+
+    printf("hkps adding fb for dumb_buffer\n");
+    fflush(stdout);
     uint32_t handles[4] = {0};
 
     handles[0] = image_.dumb_buffer_handle_;
 
-    ret = drmModeAddFB2(width_, width_, height_, frame_buffer_format_, handles,
+    ret = drmModeAddFB2(gpu_fd, width_, height_, frame_buffer_format_, handles,
                         pitches_, offsets_, &image_.drm_fd_, 0);
   } else {
     ret = drmModeAddFB2(gpu_fd, width_, height_, frame_buffer_format_,

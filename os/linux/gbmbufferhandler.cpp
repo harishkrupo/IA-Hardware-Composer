@@ -190,6 +190,8 @@ bool GbmBufferHandler::ImportBuffer(HWCNativeHandle handle) const {
     if (!handle->imported_bo) {
         ETRACE("can't import bo");
     }
+    if (handle->use_dumb_buffer_)
+      handle->imported_bo = handle->bo;
 #endif
   }
 
