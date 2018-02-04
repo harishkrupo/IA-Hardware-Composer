@@ -162,6 +162,11 @@ void CompositorThread::HandleReleaseRequest() {
 
     for (size_t i = 0; i < purged_size; i++) {
       const ResourceHandle &handle = purged_gl_resources.at(i);
+      uint32_t dbo_handle = handle.handle_->meta_data_.gem_handles_[0];
+      if (dbo_handle > 0) {
+        ReleaseDumbBuffer(gpu_fd_, dbo_handle);
+      }
+
       if (handle.drm_fd_ && ReleaseFrameBuffer(gpu_fd_, handle.drm_fd_)) {
         ETRACE("Failed to remove fb %s", PRINTERROR());
       }

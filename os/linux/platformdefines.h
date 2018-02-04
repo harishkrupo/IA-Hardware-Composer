@@ -44,6 +44,8 @@ struct gbm_handle {
   HwcBuffer meta_data_;
   bool hwc_buffer_ = false;
   uint32_t gbm_flags = 0;
+  bool is_dumb_buffer = false;
+  void* dumb_buffer_mem = NULL;
 };
 
 typedef struct gbm_handle* HWCNativeHandle;

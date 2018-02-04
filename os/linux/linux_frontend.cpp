@@ -119,6 +119,9 @@ iahwc_function_ptr_t IAHWC::HookGetFunctionPtr(iahwc_device_t* /* device */,
     case IAHWC_FUNC_LAYER_SET_BO:
       return ToHook<IAHWC_PFN_LAYER_SET_BO>(
           LayerHook<decltype(&IAHWCLayer::SetBo), &IAHWCLayer::SetBo, gbm_bo*>);
+  case IAHWC_FUNC_LAYER_SET_DUMB_BO:
+    return ToHook<IAHWC_PFN_LAYER_SET_DUMB_BO>(
+                                               LayerHook<decltype(&IAHWCLayer::SetDumbBo), &IAHWCLayer::SetDumbBo, iahwc_dumb_bo>);
     case IAHWC_FUNC_LAYER_SET_ACQUIRE_FENCE:
       return ToHook<IAHWC_PFN_LAYER_SET_ACQUIRE_FENCE>(
           LayerHook<decltype(&IAHWCLayer::SetAcquireFence),
@@ -323,6 +326,21 @@ int IAHWC::IAHWCLayer::SetBo(gbm_bo* bo) {
 
   return IAHWC_ERROR_NONE;
 }
+
+  int IAHWC::IAHWCLayer::SetDumbBo(iahwc_dumb_bo bo) {
+
+    hwc_handle_.import_data.width = bo.width;
+    hwc_handle_.import_data.height = bo.height;
+    hwc_handle_.import_data.format = DRM_FORMAT_ARGB8888;//bo.format;
+    hwc_handle_.import_data.stride = bo.width * 4;
+    hwc_handle_.gbm_flags = 0;
+    hwc_handle_.is_dumb_buffer = true;
+    hwc_handle_.dumb_buffer_mem = bo.buffer;
+
+    iahwc_layer_.SetNativeHandle(&hwc_handle_);
+
+    return IAHWC_ERROR_NONE;
+  }
 
 int IAHWC::IAHWCLayer::SetAcquireFence(int32_t acquire_fence) {
   iahwc_layer_.SetAcquireFence(acquire_fence);

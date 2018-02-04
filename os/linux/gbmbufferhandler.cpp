@@ -24,6 +24,9 @@
 #include <hwcdefs.h>
 #include <hwctrace.h>
 #include <platformdefines.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 
 #include "commondrmutils.h"
 
@@ -167,15 +170,50 @@ void GbmBufferHandler::CopyHandle(HWCNativeHandle source,
   temp->bo = source->bo;
   temp->total_planes = source->total_planes;
   temp->gbm_flags  = source->gbm_flags;
+  temp->is_dumb_buffer = source->is_dumb_buffer;
+  temp->dumb_buffer_mem = source->dumb_buffer_mem;
+
   *target = temp;
 }
 
 bool GbmBufferHandler::ImportBuffer(HWCNativeHandle handle) const {
   memset(&(handle->meta_data_), 0, sizeof(struct HwcBuffer));
   uint32_t gem_handle = 0;
+  int ret;
   handle->meta_data_.format_ = handle->import_data.format;
   handle->meta_data_.native_format_ = handle->import_data.format;
-  if (!handle->imported_bo) {
+  if (handle->is_dumb_buffer) {
+    struct drm_mode_create_dumb request;
+    struct drm_mode_map_dumb map_arg;
+    void* map;
+    memset(&request, 0, sizeof(request));
+    request.width = handle->import_data.width;
+    request.height = handle->import_data.height;
+    request.bpp = 4; //handle->import_data.stride / handle->import_data.width;
+    request.flags = 0;
+    if (drmIoctl(fd_, DRM_IOCTL_MODE_CREATE_DUMB, &request) < 0) {
+      ETRACE("Failed to create dumb buffer %d %s", errno, strerror(errno));
+    }
+
+    gem_handle = request.handle;
+
+    memset(&map_arg, 0, sizeof map_arg);
+    map_arg.handle = gem_handle;
+    ret = drmIoctl(fd_, DRM_IOCTL_MODE_MAP_DUMB, &map_arg);
+    if(ret) {
+      ETRACE("hkps failed ioctl %d %s", errno, strerror(errno));
+    }
+    ETRACE("hkps %dx%d %d", handle->import_data.width, handle->import_data.height, gem_handle);
+    map = mmap(NULL, handle->import_data.width * handle->import_data.height, PROT_WRITE,
+               MAP_SHARED, fd_, map_arg.offset);
+    if (map == MAP_FAILED) {
+      ETRACE("unable to map buffer %d %s", errno, strerror(errno));
+      raise(SIGSEGV);
+    }
+
+    memcpy(map, handle->dumb_buffer_mem, handle->import_data.height*handle->import_data.stride);
+
+  } else if (!handle->imported_bo) {
 #if USE_MINIGBM
     handle->imported_bo =
         gbm_bo_import(device_, GBM_BO_IMPORT_FD_PLANAR, &handle->import_data,
@@ -190,9 +228,9 @@ bool GbmBufferHandler::ImportBuffer(HWCNativeHandle handle) const {
         ETRACE("can't import bo");
     }
 #endif
+    gem_handle = gbm_bo_get_handle(handle->imported_bo).u32;
   }
 
-  gem_handle = gbm_bo_get_handle(handle->imported_bo).u32;
 
   if (!gem_handle) {
     ETRACE("Invalid GEM handle. \n");
@@ -216,7 +254,10 @@ bool GbmBufferHandler::ImportBuffer(HWCNativeHandle handle) const {
   handle->meta_data_.prime_fd_ = handle->import_data.fd;
   handle->meta_data_.gem_handles_[0] = gem_handle;
   handle->meta_data_.offsets_[0] = 0;
-  handle->meta_data_.pitches_[0] = gbm_bo_get_stride(handle->bo);
+  if (handle->is_dumb_buffer)
+    handle->meta_data_.pitches_[0] = handle->import_data.stride;
+  else
+    handle->meta_data_.pitches_[0] = gbm_bo_get_stride(handle->bo);
 #endif
 
   return true;
