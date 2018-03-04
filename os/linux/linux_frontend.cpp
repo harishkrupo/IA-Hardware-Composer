@@ -116,8 +116,8 @@ iahwc_function_ptr_t IAHWC::HookGetFunctionPtr(iahwc_device_t* /* device */,
       return ToHook<IAHWC_PFN_CREATE_LAYER>(
           DisplayHook<decltype(&IAHWCDisplay::CreateLayer),
                       &IAHWCDisplay::CreateLayer, uint32_t*>);
-    case IAHWC_FUNC_DISPLAY_DESTROY_LAYER:
-      return ToHook<IAHWC_PFN_DISPLAY_DESTROY_LAYER>(
+    case IAHWC_FUNC_DESTROY_LAYER:
+      return ToHook<IAHWC_PFN_DESTROY_LAYER>(
           DisplayHook<decltype(&IAHWCDisplay::DestroyLayer),
                       &IAHWCDisplay::DestroyLayer, uint32_t>);
     case IAHWC_FUNC_LAYER_SET_BO:

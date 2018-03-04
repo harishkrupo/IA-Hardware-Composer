@@ -71,6 +71,7 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
     return;
   }
 
+  uint8_t* byteaddr = (uint8_t*) addr;
   memcpy(ptr, addr, size);
   Unmap(handle->meta_data_.prime_fds_[0], ptr, size);
   needs_texture_upload_ = false;

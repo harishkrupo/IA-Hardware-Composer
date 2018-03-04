@@ -88,6 +88,7 @@ void OverlayLayer::SetBuffer(HWCNativeHandle handle, int32_t acquire_fence,
     bool is_cursor_layer = false;
     if (layer) {
       is_cursor_layer = layer->IsCursorLayer();
+      ETRACE("is_cursor_layer %d %p \n", is_cursor_layer, layer);
     }
     buffer->InitializeFromNativeHandle(handle, resource_manager,
                                        is_cursor_layer);
