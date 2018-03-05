@@ -313,10 +313,12 @@ bool IAHWC::IAHWCDisplay::IsConnected() {
 
 IAHWC::IAHWCLayer::IAHWCLayer() {
   layer_usage_ = IAHWC_LAYER_USAGE_NORMAL;
+  pixel_data_ = NULL;
 }
 
 IAHWC::IAHWCLayer::~IAHWCLayer() {
   ::close(hwc_handle_.import_data.fd);
+  delete pixel_data_;
 }
 
 int IAHWC::IAHWCLayer::SetBo(gbm_bo* bo) {
@@ -348,7 +350,10 @@ int IAHWC::IAHWCLayer::SetRawPixelData(iahwc_raw_pixel_data bo) {
   hwc_handle_.meta_data_.format_ = bo.format;
   hwc_handle_.gbm_flags = 0;
   hwc_handle_.is_raw_pixel_ = true;
-  hwc_handle_.pixel_memory_ = bo.buffer;
+
+  pixel_data_ = new char[bo.height * bo.stride];
+  memcpy(pixel_data_, bo.buffer, bo.height * bo.stride);
+  hwc_handle_.pixel_memory_ = pixel_data_;
 
   iahwc_layer_.SetNativeHandle(&hwc_handle_);
 
