@@ -271,7 +271,7 @@ int IAHWC::IAHWCDisplay::PresentDisplay(int32_t* release_fd) {
   }
 
   if (cursor_layer)
-    layers.insert(layers.begin(), cursor_layer);
+    layers.emplace_back(cursor_layer);
 
   native_display_->Present(layers, release_fd);
 

@@ -256,10 +256,34 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
   }
 
   if (image_.texture_ != 0) {
+	  if (pixel_buffer_ && pixel_buffer_->NeedsTextureUpload()) {
+	      glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
+	      glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+	  }
+
     glBindTexture(target, image_.texture_);
     if (pixel_buffer_ && pixel_buffer_->NeedsTextureUpload()) {
-      glTexImage2D(GL_TEXTURE_2D, 0, format_, width_, height_, 0, format_,
-                   GL_UNSIGNED_BYTE, data_);
+	GLenum gl_format;
+	GLenum gl_pixel_type;
+	switch (format_) {
+	case DRM_FORMAT_XRGB8888:
+		gl_format = GL_BGRA_EXT;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		break;
+	case DRM_FORMAT_ARGB8888:
+		gl_format = GL_BGRA_EXT;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		break;
+	case DRM_FORMAT_RGB565:
+		gl_format = GL_RGB;
+		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
+		break;
+	default:
+		break;
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitches_[0], height_, 0, gl_format,
+		     gl_pixel_type, data_);
     }
 
     glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
@@ -267,15 +291,39 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
   } else {
     GLuint texture;
     glGenTextures(1, &texture);
+    if (pixel_buffer_ && pixel_buffer_->NeedsTextureUpload()) {
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+    }
     glBindTexture(target, texture);
-    glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
     if (external_import) {
       if (pixel_buffer_ && pixel_buffer_->NeedsTextureUpload()) {
-        glTexImage2D(GL_TEXTURE_2D, 0, format_, width_, height_, 0, format_,
-                     GL_UNSIGNED_BYTE, data_);
+	  GLenum gl_format;
+	  GLenum gl_pixel_type;
+	  switch (format_) {
+	  case DRM_FORMAT_XRGB8888:
+		  gl_format = GL_BGRA_EXT;
+		  gl_pixel_type = GL_UNSIGNED_BYTE;
+		  break;
+	  case DRM_FORMAT_ARGB8888:
+		  gl_format = GL_BGRA_EXT;
+		  gl_pixel_type = GL_UNSIGNED_BYTE;
+		  break;
+	  case DRM_FORMAT_RGB565:
+		  gl_format = GL_RGB;
+		  gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
+		  break;
+	  default:
+		  break;
+	  }
+
+	glTexImage2D(GL_TEXTURE_2D, 0, gl_format, pitches_[0], height_, 0, gl_format,
+		     gl_pixel_type, data_);
       }
+
       glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
     }
 
     glBindTexture(target, 0);

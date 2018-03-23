@@ -72,7 +72,10 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
   }
 
   uint8_t* byteaddr = (uint8_t*) addr;
-  memcpy(ptr, addr, size);
+  for (int i = 0; i < handle->meta_data_.height_; i++)
+	memcpy(ptr + i * handle->meta_data_.pitches_[0],
+	     byteaddr + i * handle->meta_data_.pitches_[0],
+	     handle->meta_data_.pitches_[0]);
   Unmap(handle->meta_data_.prime_fds_[0], ptr, size);
   needs_texture_upload_ = false;
 }
