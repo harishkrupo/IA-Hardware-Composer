@@ -29,7 +29,7 @@ PixelBuffer::~PixelBuffer() {
 void PixelBuffer::Initialize(const NativeBufferHandler *buffer_handler,
                              uint32_t width, uint32_t height, uint32_t stride, uint32_t format,
                              void *addr, ResourceHandle &resource, bool is_cursor_buffer) {
-  int layer_type = is_cursor_buffer ? kLayerCursor : kLayerNormal;
+  int layer_type =  kLayerNormal;
   uint8_t* byteaddr = (uint8_t*) addr;
 
   if (!buffer_handler->CreateBuffer(width, height, format, &resource.handle_, layer_type)) {
