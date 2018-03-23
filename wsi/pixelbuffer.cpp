@@ -48,10 +48,11 @@ void PixelBuffer::Initialize(const NativeBufferHandler *buffer_handler,
     ETRACE("PixelBuffer: prime_fd_ is invalid.");
     return;
   }
-
+return;
   size_t size = handle->meta_data_.height_ * handle->meta_data_.pitches_[0];
   uint8_t *ptr = (uint8_t *) Map(handle->meta_data_.prime_fd_, size);
   if (!ptr) {
+	ETRACE("Map failed1------------- \n");
     return;
   }
 
@@ -66,17 +67,25 @@ void PixelBuffer::Initialize(const NativeBufferHandler *buffer_handler,
 
 void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
   needs_texture_upload_ = true;
+  return;
+
   const HWCNativeHandle &handle = resource.handle_;
   size_t size = handle->meta_data_.height_ * handle->meta_data_.pitches_[0];
   void *ptr = Map(handle->meta_data_.prime_fd_, size);
   if (!ptr) {
+	ETRACE("Map failed------------- \n");
     return;
   }
 
     uint8_t* byteaddr = (uint8_t*) addr;
 
-  memcpy(ptr, addr, size);
+    for (int i = 0; i < handle->meta_data_.height_; i++)
+      memcpy(ptr + i * handle->meta_data_.pitches_[0],
+	     byteaddr + i * handle->meta_data_.pitches_[0],
+	     handle->meta_data_.pitches_[0]);
+
   Unmap(handle->meta_data_.prime_fd_, ptr, size);
   needs_texture_upload_ = false;
+  ETRACE("Done with refresh------------- %d %d %d \n", size, handle->meta_data_.height_, handle->meta_data_.pitches_[0]);
 }
 };

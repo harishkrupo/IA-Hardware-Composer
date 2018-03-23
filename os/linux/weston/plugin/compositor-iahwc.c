@@ -764,43 +764,32 @@ static struct weston_plane *iahwc_output_prepare_cursor_view(
   struct wl_shm_buffer *shmbuf;
   float x, y;
   struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
-
   if (output->cursor_view)
     return NULL;
-
   if (ev->surface->buffer_ref.buffer == NULL)
     return NULL;
-
   shmbuf = wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource);
   if (!shmbuf)
     return NULL;
-
   if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888)
     return NULL;
-
   if (output->base.transform != WL_OUTPUT_TRANSFORM_NORMAL)
     return NULL;
-
   if (ev->transform.enabled &&
       (ev->transform.matrix.type > WESTON_MATRIX_TRANSFORM_TRANSLATE))
     return NULL;
-
   if (viewport->buffer.scale != output->base.current_scale)
     return NULL;
-
   if (ev->geometry.scissor_enabled)
     return NULL;
-
   if (ev->surface->width > b->cursor_width ||
       ev->surface->height > b->cursor_height)
     return NULL;
-
   output->cursor_view = ev;
   weston_view_to_global_float(ev, 0, 0, &x, &y);
   output->cursor_plane.x = x;
   output->cursor_plane.y = y;
   uint32_t cursor_layer_id = 0;
-    fprintf(stderr, "utput->cursor_layer_id %d \n", cursor_layer_id);
   b->iahwc_create_layer(b->iahwc_device, 0, &cursor_layer_id);
   b->iahwc_layer_set_usage(b->iahwc_device, 0, cursor_layer_id,
 			   IAHWC_LAYER_USAGE_CURSOR);
@@ -814,21 +803,57 @@ static struct weston_plane *iahwc_output_prepare_cursor_view(
   dbo.width = surfwidth;
   dbo.height = surfheight;
   dbo.stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-  dbo.format = DRM_FORMAT_ARGB8888;
+  dbo.format = wl_shm_buffer_get_format(buffer->shm_buffer);
   dbo.buffer = wl_shm_buffer_get_data(buffer->shm_buffer);
+
+  switch (dbo.format) {
+  case WL_SHM_FORMAT_XRGB8888:
+	  dbo.format = DRM_FORMAT_XRGB8888;
+	  break;
+  case WL_SHM_FORMAT_ARGB8888:
+	  dbo.format = DRM_FORMAT_ARGB8888;
+	  break;
+  case WL_SHM_FORMAT_RGB565:
+	  dbo.format = DRM_FORMAT_RGB565;
+	  break;
+  case WL_SHM_FORMAT_YUV420:
+	  dbo.format = DRM_FORMAT_YUV420;
+	  break;
+  case WL_SHM_FORMAT_NV12:
+	  dbo.format = DRM_FORMAT_NV12;
+	  break;
+  case WL_SHM_FORMAT_YUYV:
+	  dbo.format = DRM_FORMAT_YUYV	;
+	  break;
+  default:
+	  weston_log("warning: unknown shm buffer format: %08x\n",
+		     dbo.format);
+  }
   wl_shm_buffer_begin_access(buffer->shm_buffer);
   b->iahwc_layer_set_raw_pixel_data(b->iahwc_device, 0, cursor_layer_id,
                                     dbo);
-    wl_shm_buffer_end_access(buffer->shm_buffer);
+  wl_shm_buffer_end_access(buffer->shm_buffer);
 
   iahwc_rect_t source_crop = {0, 0, surfwidth, surfheight};
 
-  iahwc_rect_t display_frame = {x, y, surfwidth, surfheight};
+  int32_t disp_width = output->base.current_mode->width;
+  int32_t disp_height = output->base.current_mode->height;
+
+  if (x < 0)
+    x = 0;
+  if (x > disp_width - surfwidth )
+    x = disp_width - surfwidth;
+
+  if (y < 0)
+    y = 0;
+  if (y > disp_height - surfheight )
+    y = disp_height - surfheight;
+
+  iahwc_rect_t display_frame = {x, y, surfwidth+x, surfheight+y};
 
   iahwc_region_t damage_region;
   damage_region.numRects = 1;
   damage_region.rects = &source_crop;
-
   b->iahwc_layer_set_source_crop(b->iahwc_device, 0, cursor_layer_id,
                                  source_crop);
   b->iahwc_layer_set_display_frame(b->iahwc_device, 0, cursor_layer_id,
@@ -861,12 +886,15 @@ static struct weston_plane *iahwc_output_prepare_overlay_view(
   uint32_t dest_w, dest_h;
 
   uint32_t overlay_layer_id;
-
+fprintf(stderr, "iahwc_output_prepare_overlay_view \n");
   if (ev->surface->buffer_ref.buffer == NULL)
     return NULL;
-
+fprintf(stderr, "iahwc_output_prepare_overlay_view2 \n");
   buffer_resource = ev->surface->buffer_ref.buffer->resource;
   shmbuf = wl_shm_buffer_get(buffer_resource);
+  if (shmbuf) {
+      return NULL;
+  }
 
   if (!shmbuf) {
   if ((dmabuf = linux_dmabuf_buffer_get(buffer_resource))) {
@@ -980,9 +1008,31 @@ static struct weston_plane *iahwc_output_prepare_overlay_view(
       struct iahwc_raw_pixel_data dbo;
       dbo.width = ev->surface->width;
       dbo.height = ev->surface->height;
-      dbo.stride = wl_shm_buffer_get_stride(shmbuf);
       dbo.format = wl_shm_buffer_get_format(shmbuf);
       dbo.buffer = wl_shm_buffer_get_data(shmbuf);
+      switch (dbo.format) {
+      case WL_SHM_FORMAT_XRGB8888:
+	      dbo.stride = wl_shm_buffer_get_stride(shmbuf) / 4;
+	      break;
+      case WL_SHM_FORMAT_ARGB8888:
+	      dbo.stride = wl_shm_buffer_get_stride(shmbuf) / 4;
+	      break;
+      case WL_SHM_FORMAT_RGB565:
+	      dbo.stride = wl_shm_buffer_get_stride(shmbuf) / 2;
+	      break;
+      case WL_SHM_FORMAT_YUV420:
+	      dbo.stride = wl_shm_buffer_get_stride(shmbuf);
+	      break;
+      case WL_SHM_FORMAT_NV12:
+	      dbo.stride = wl_shm_buffer_get_stride(shmbuf);
+	      break;
+      case WL_SHM_FORMAT_YUYV:
+	      dbo.stride = wl_shm_buffer_get_stride(shmbuf) / 2;
+	      break;
+      default:
+	      weston_log("warning: unknown shm buffer format: %08x\n",
+			 wl_shm_buffer_get_format(shmbuf));
+      }
 	    wl_shm_buffer_begin_access(shmbuf);
       b->iahwc_layer_set_raw_pixel_data(b->iahwc_device, 0, overlay_layer_id,
 					dbo);
@@ -992,14 +1042,15 @@ static struct weston_plane *iahwc_output_prepare_overlay_view(
     b->iahwc_layer_set_bo(b->iahwc_device, 0, overlay_layer_id, bo);
   }
 
-  iahwc_rect_t source_crop = {src_x, src_y, src_w, src_h};
+  iahwc_rect_t source_crop = {0, 0, dest_w, dest_h};
 
-  iahwc_rect_t display_frame = {dest_x, dest_y, dest_w, dest_h};
+  iahwc_rect_t display_frame = {dest_x, dest_y, dest_w + dest_x, dest_h + dest_y};
 
   iahwc_region_t damage_region;
   damage_region.numRects = 1;
   damage_region.rects = &source_crop;
-
+  fprintf(stderr,"source_crop.left, source_crop.top, source_crop.right, source_crop.bottom %d %d %d %d \n", source_crop.left, source_crop.top, source_crop.right, source_crop.bottom);
+  fprintf(stderr,"display_frame.left, display_frame.top, display_frame.right, display_frame.bottom %d %d %d %d \n", display_frame.left, display_frame.top, display_frame.right, display_frame.bottom);
   b->iahwc_layer_set_source_crop(b->iahwc_device, 0, overlay_layer_id,
                                  source_crop);
   b->iahwc_layer_set_display_frame(b->iahwc_device, 0, overlay_layer_id,
@@ -1159,14 +1210,18 @@ static void iahwc_assign_planes(struct weston_output *output_base,
 
   wl_list_for_each_safe(ev, next, &output_base->compositor->view_list, link) {
 
-    pixman_region32_init(&surface_overlap);
-    pixman_region32_intersect(&surface_overlap, &overlap,
-                              &ev->transform.boundingbox);
+      pixman_region32_init(&surface_overlap);
+      pixman_region32_intersect(&surface_overlap, &overlap,
+				&ev->transform.boundingbox);
 
-    next_plane = NULL;
+      next_plane = NULL;
+     // if (pixman_region32_not_empty(&surface_overlap))
+	//      next_plane = primary;
 
-    if (next_plane == NULL)
+    if (next_plane == NULL) {
+	fprintf(stderr, "checking cursor \n");
       next_plane = iahwc_output_prepare_cursor_view(output, ev);
+    }
 
     if (next_plane == NULL)
       next_plane = iahwc_output_prepare_overlay_view(output, ev);
@@ -1444,10 +1499,10 @@ static int vsync_callback(iahwc_callback_data_t data, iahwc_display_t display,
   ts.tv_nsec = timestamp;
   ts.tv_sec = timestamp / (1000 * 1000 * 1000);
 
-  if (output->pageflip_timer && output->frame_commited)
+  if (output->pageflip_timer && output->frame_commited) {
     wl_event_source_timer_update(output->pageflip_timer, 1);
-
-  //weston_output_finish_frame(&output->base, &ts, flags);
+    //weston_output_finish_frame(&output->base, &ts, flags);
+  }
 
   output->frame_commited = 0;
 

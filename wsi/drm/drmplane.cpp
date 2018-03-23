@@ -241,6 +241,8 @@ bool DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
   OverlayBuffer* buffer = layer->GetBuffer();
   const HwcRect<int>& display_frame = layer->GetDisplayFrame();
   const HwcRect<float>& source_crop = layer->GetSourceCrop();
+  ETRACE("source_crop %f %f %f %f \n", source_crop.left, source_crop.top, source_crop.right, source_crop.bottom);
+    ETRACE("display_frame %d %d %d %d \n", display_frame.left, display_frame.top, display_frame.right, display_frame.bottom);
   int fence = kms_fence_;
   if (test_commit)
     fence = layer->GetAcquireFence();

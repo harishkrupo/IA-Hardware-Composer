@@ -88,6 +88,7 @@ void OverlayLayer::SetBuffer(HWCNativeHandle handle, int32_t acquire_fence,
   }
 
   if (register_buffer && handle->is_raw_pixel_) {
+      ETRACE("UpdateRawPixelBackingStore called \n");
     buffer->UpdateRawPixelBackingStore(handle->pixel_memory_);
     state_ |= kRawPixelDataChanged;
   }
