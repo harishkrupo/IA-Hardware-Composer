@@ -30,7 +30,8 @@ void PixelBuffer::Initialize(const NativeBufferHandler *buffer_handler,
                              uint32_t width, uint32_t height, uint32_t stride, uint32_t format,
                              void *addr, ResourceHandle &resource, bool is_cursor_buffer) {
   int i;
-  int layer_type = is_cursor_buffer ? kLayerCursor : kLayerNormal;
+  //int layer_type = is_cursor_buffer ? kLayerCursor : kLayerNormal;
+  int layer_type = kLayerNormal;
   uint8_t* byteaddr = (uint8_t*) addr;
 
   if (!buffer_handler->CreateBuffer(width, height, format, &resource.handle_, layer_type)) {
@@ -71,7 +72,7 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
 
   const HWCNativeHandle &handle = resource.handle_;
   size_t size = handle->meta_data_.height_ * handle->meta_data_.pitches_[0];
-  void *ptr = Map(handle->meta_data_.prime_fd_, size);
+  uint8_t *ptr = (uint8_t *) Map(handle->meta_data_.prime_fd_, size);
   if (!ptr) {
 	ETRACE("Map failed------------- \n");
     return;
@@ -86,6 +87,5 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
 
   Unmap(handle->meta_data_.prime_fd_, ptr, size);
   needs_texture_upload_ = false;
-  ETRACE("Done with refresh------------- %d %d %d \n", size, handle->meta_data_.height_, handle->meta_data_.pitches_[0]);
 }
 };
