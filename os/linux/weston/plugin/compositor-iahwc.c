@@ -1625,10 +1625,6 @@ static int create_outputs(struct iahwc_backend *b) {
   return 0;
 }
 
-static void iahwc_restore(struct weston_compositor *ec) {
-  weston_launcher_restore(ec->launcher);
-}
-
 static void iahwc_destroy(struct weston_compositor *ec) {
   struct iahwc_backend *b = to_iahwc_backend(ec);
 
@@ -1847,10 +1843,10 @@ static struct iahwc_backend *iahwc_backend_create(
   b->cursor_height = 256;
 
   b->base.destroy = iahwc_destroy;
-  b->base.restore = iahwc_restore;
   b->base.repaint_begin = iahwc_repaint_begin;
   b->base.repaint_flush = iahwc_repaint_flush;
   b->base.repaint_cancel = iahwc_repaint_cancel;
+
 
   // XXX/TODO: No sprites for now
   // XXX/TODO: Add api in hwc to get plane info.
