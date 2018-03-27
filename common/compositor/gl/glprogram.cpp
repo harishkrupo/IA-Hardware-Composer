@@ -91,6 +91,10 @@ static std::string GenerateFragmentShader(int layer_count) {
                          << "precision mediump float;\n";
   for (int i = 0; i < layer_count; ++i) {
     fragment_shader_stream << "uniform samplerExternalOES uLayerTexture" << i
+                           << ";\n"
+                           << "uniform sampler2D uLayerTexture2D" << i
+                           << ";\n"
+                           << "uniform bool isTexure2D" << i
                            << ";\n";
   }
   fragment_shader_stream << "uniform float uLayerAlpha[LAYER_COUNT];\n"
@@ -106,10 +110,19 @@ static std::string GenerateFragmentShader(int layer_count) {
     if (i > 0)
       fragment_shader_stream << "  if (alphaCover > 0.5/255.0) {\n";
     // clang-format off
-    fragment_shader_stream << "  texSample = texture2D(uLayerTexture" << i
+    fragment_shader_stream << "  if (isTexure2D" << i
+                           << ") {\n"
+                           << "    texSample = texture2D(uLayerTexture2D" << i
                            << ",\n"
-                           << "                        fTexCoords[" << i
+                           << "                          fTexCoords[" << i
                            << "]);\n"
+                           << "  } else {\n"
+                           << "    texSample = texture2D(uLayerTexture" << i
+                           << ",\n"
+                           << "                          fTexCoords[" << i
+                           << "]);\n"
+                           // << "    texSample = vec4(1.0, 0.5, 0.75, 1.0);\n"
+                           << "  }\n"
                            << "  multRgb = texSample.rgb *\n"
                            << "            max(texSample.a, uLayerPremult[" << i
                            << "]);\n"
@@ -215,13 +228,6 @@ void GLProgram::UseProgram(const RenderState &state, GLuint viewport_width,
     alpha_loc_ = glGetUniformLocation(program_, "uLayerAlpha");
     premult_loc_ = glGetUniformLocation(program_, "uLayerPremult");
     tex_matrix_loc_ = glGetUniformLocation(program_, "uTexMatrix");
-    for (unsigned src_index = 0; src_index < size; src_index++) {
-      std::ostringstream texture_name_formatter;
-      texture_name_formatter << "uLayerTexture" << src_index;
-      GLuint tex_loc =
-          glGetUniformLocation(program_, texture_name_formatter.str().c_str());
-      glUniform1i(tex_loc, src_index);
-    }
 
     initialized_ = true;
   }
@@ -241,7 +247,23 @@ void GLProgram::UseProgram(const RenderState &state, GLuint viewport_width,
     glUniformMatrix2fv(tex_matrix_loc_ + src_index, 1, GL_FALSE,
                        src.texture_matrix_);
     glActiveTexture(GL_TEXTURE0 + src_index);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, src.handle_);
+    glBindTexture(src.texture_type_, src.handle_);
+
+    std::ostringstream texture_name_formatter;
+    std::ostringstream texture_2D_formatter;
+    texture_2D_formatter << "isTexure2D" << src_index;
+    GLint is_texture_2d_loc_ = glGetUniformLocation(program_, texture_2D_formatter.str().c_str());
+    if (src.texture_type_ == GL_TEXTURE_2D) {
+      texture_name_formatter << "uLayerTexture2D" << src_index;
+      glUniform1i(is_texture_2d_loc_, 1);
+    } else {
+      texture_name_formatter << "uLayerTexture" << src_index;
+      glUniform1i(is_texture_2d_loc_, 0);
+    }
+    GLuint tex_loc =
+      glGetUniformLocation(program_, texture_name_formatter.str().c_str());
+    glUniform1i(tex_loc, src_index);
+
   }
 }
 

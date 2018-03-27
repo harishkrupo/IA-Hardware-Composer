@@ -43,9 +43,11 @@ void RenderState::ConstructState(std::vector<OverlayLayer> &layers,
   const std::vector<size_t> &source = region.source_layers;
   for (size_t texture_index : source) {
     OverlayLayer &layer = layers.at(texture_index);
+    bool is_uploaded_texture = layer.GetBuffer()->IsUploadedTexture();
     layer_state_.emplace_back();
     RenderState::LayerState &src = layer_state_.back();
     src.layer_index_ = texture_index;
+    src.texture_type_ = is_uploaded_texture ? GL_TEXTURE_2D : GL_TEXTURE_EXTERNAL_OES;
     bool swap_xy = false;
     bool flip_xy[2] = {false, false};
     uint32_t transform = layer.GetTransform();

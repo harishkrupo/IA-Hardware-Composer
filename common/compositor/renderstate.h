@@ -41,6 +41,7 @@ struct RenderState {
     float texture_matrix_[4];
     uint32_t layer_index_;
     GpuResourceHandle handle_;
+    uint64_t texture_type_;
   };
 
   void ConstructState(std::vector<OverlayLayer> &layers,

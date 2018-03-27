@@ -44,6 +44,7 @@ class GLProgram {
   GLint alpha_loc_;
   GLint premult_loc_;
   GLint tex_matrix_loc_;
+  GLint is_texture_2d_;
   bool initialized_;
 };
 
