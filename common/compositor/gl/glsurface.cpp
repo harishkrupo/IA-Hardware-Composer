@@ -33,6 +33,7 @@ GLSurface::~GLSurface() {
 bool GLSurface::InitializeGPUResources() {
   EGLDisplay egl_display = eglGetCurrentDisplay();
   // Create EGLImage.
+  fprintf(stderr, "hkps %s:%d layer width %d height %d\n", __PRETTY_FUNCTION__, __LINE__, layer_.GetDisplayFrameWidth(), layer_.GetDisplayFrameHeight());
   const ResourceHandle& import =
       layer_.GetBuffer()->GetGpuResource(egl_display, false);
 

@@ -246,8 +246,6 @@ void GLProgram::UseProgram(const RenderState &state, GLuint viewport_width,
                 src.crop_bounds_[3] - src.crop_bounds_[1]);
     glUniformMatrix2fv(tex_matrix_loc_ + src_index, 1, GL_FALSE,
                        src.texture_matrix_);
-    glActiveTexture(GL_TEXTURE0 + src_index);
-    glBindTexture(src.texture_type_, src.handle_);
 
     std::ostringstream texture_name_formatter;
     std::ostringstream texture_2D_formatter;
@@ -264,6 +262,9 @@ void GLProgram::UseProgram(const RenderState &state, GLuint viewport_width,
       glGetUniformLocation(program_, texture_name_formatter.str().c_str());
     glUniform1i(tex_loc, src_index);
 
+    fprintf(stderr, "hkps %s:%d texture type is %lx texture is %d\n", __PRETTY_FUNCTION__, __LINE__, src.texture_type_, src.handle_);
+    glActiveTexture(GL_TEXTURE0 + src_index);
+    glBindTexture(src.texture_type_, src.handle_);
   }
 }
 

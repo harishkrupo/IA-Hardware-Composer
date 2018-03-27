@@ -232,45 +232,49 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
     image_.texture_ = texture;
   }
 
-  if (pixel_buffer_) {
-    if (pixel_buffer_->NeedsTextureUpload()) {
-      glBindTexture(target, image_.texture_);
-      GLenum gl_format;
-      GLenum gl_pixel_type;
-      switch (format_) {
-      case DRM_FORMAT_XRGB8888:
-        gl_format = GL_BGRA_EXT;
-        gl_pixel_type = GL_UNSIGNED_BYTE;
-        break;
-      case DRM_FORMAT_ARGB8888:
-        gl_format = GL_BGRA_EXT;
-        gl_pixel_type = GL_UNSIGNED_BYTE;
-        break;
-      case DRM_FORMAT_RGB565:
-        gl_format = GL_RGB;
-        gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
-        break;
-      default:
-        break;
-      }
+  // if (pixel_buffer_) {
+  //   if (pixel_buffer_->NeedsTextureUpload()) {
+  //     fprintf(stderr, "hkps %s:%d binding texture 2D id %d\n", __PRETTY_FUNCTION__, __LINE__, image_.texture_);
+  //     glBindTexture(target, image_.texture_);
+  //     GLenum gl_format;
+  //     GLenum gl_pixel_type;
+  //     switch (format_) {
+  //     case DRM_FORMAT_XRGB8888:
+  //       gl_format = GL_BGRA_EXT;
+  //       gl_pixel_type = GL_UNSIGNED_BYTE;
+  //       break;
+  //     case DRM_FORMAT_ARGB8888:
+  //       gl_format = GL_BGRA_EXT;
+  //       gl_pixel_type = GL_UNSIGNED_BYTE;
+  //       break;
+  //     case DRM_FORMAT_RGB565:
+  //       gl_format = GL_RGB;
+  //       gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
+  //       break;
+  //     default:
+  //       break;
+  //     }
 
-      glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
-      glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+  //     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  //     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  //     fprintf(stderr, "hkps %s:%d added param for wrap\n", __PRETTY_FUNCTION__, __LINE__);
 
-      glTexImage2D(GL_TEXTURE_2D, 0, gl_format, width_, height_, 0, gl_format,
-                   gl_pixel_type, data_);
-      glGenerateMipmap(GL_TEXTURE_2D);
+  //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-      pixel_buffer_->TextureUploadDone();
+  //     glTexImage2D(GL_TEXTURE_2D, 0, gl_format, width_, height_, 0, gl_format,
+  //                  gl_pixel_type, data_);
+  //     glGenerateMipmap(GL_TEXTURE_2D);
 
-    }
-  } else {
+  //     pixel_buffer_->TextureUploadDone();
+
+  //   }
+  // } else {
+    fprintf(stderr, "hkps %s:%d binding external texture id %d\n", __PRETTY_FUNCTION__, __LINE__, image_.texture_);
     glBindTexture(target, image_.texture_);
     glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
-  }
+  // }
 
 
   glBindTexture(target, 0);

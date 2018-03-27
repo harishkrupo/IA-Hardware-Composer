@@ -27,7 +27,9 @@ bool NativeGLResource::PrepareResources(
   std::vector<GLuint>().swap(layer_textures_);
   layer_textures_.reserve(buffers.size());
   EGLDisplay egl_display = eglGetCurrentDisplay();
+
   for (auto& buffer : buffers) {
+    fprintf(stderr, "hkps %s:%d layer width %d height %d\n", __PRETTY_FUNCTION__, __LINE__, buffer->GetWidth(), buffer->GetHeight());
     // Create EGLImage.
     const ResourceHandle& import_image =
         buffer->GetGpuResource(egl_display, true);

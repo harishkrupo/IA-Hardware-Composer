@@ -93,7 +93,8 @@ class DrmBuffer : public OverlayBuffer {
                                               uint32_t height) override;
 
   bool IsUploadedTexture() {
-    return pixel_buffer_ != NULL;
+    // return pixel_buffer_ != NULL;
+    return false;
   }
 
   bool CreateFrameBuffer(uint32_t gpu_fd) override;

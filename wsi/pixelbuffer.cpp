@@ -29,7 +29,7 @@ PixelBuffer::~PixelBuffer() {
 void PixelBuffer::Initialize(const NativeBufferHandler *buffer_handler,
                              uint32_t width, uint32_t height, uint32_t stride, uint32_t format,
                              void *addr, ResourceHandle &resource, bool is_cursor_buffer) {
-  int i;
+  int i, j;
   //int layer_type = is_cursor_buffer ? kLayerCursor : kLayerNormal;
   int layer_type = kLayerNormal;
   uint8_t* byteaddr = (uint8_t*) addr;
@@ -49,8 +49,9 @@ void PixelBuffer::Initialize(const NativeBufferHandler *buffer_handler,
     ETRACE("PixelBuffer: prime_fd_ is invalid.");
     return;
   }
-return;
+
   size_t size = handle->meta_data_.height_ * handle->meta_data_.pitches_[0];
+  fprintf(stderr, "hkps %s:%d pixel buffer width %d height %d stride %d received stride %d\n", __PRETTY_FUNCTION__, __LINE__, handle->meta_data_.width_, handle->meta_data_.height_, handle->meta_data_.pitches_[0], stride);
   uint8_t *ptr = (uint8_t *) Map(handle->meta_data_.prime_fd_, size);
   if (!ptr) {
 	ETRACE("Map failed1------------- \n");
@@ -67,9 +68,11 @@ return;
 }
 
 void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
-  needs_texture_upload_ = true;
-  return;
+  // needs_texture_upload_ = true;
+  // return;
 
+  int i, j;
+  fprintf(stderr, "hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   const HWCNativeHandle &handle = resource.handle_;
   size_t size = handle->meta_data_.height_ * handle->meta_data_.pitches_[0];
   uint8_t *ptr = (uint8_t *) Map(handle->meta_data_.prime_fd_, size);
@@ -78,14 +81,26 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
     return;
   }
 
-    uint8_t* byteaddr = (uint8_t*) addr;
+  uint8_t* byteaddr = (uint8_t*) addr;
 
-    for (int i = 0; i < handle->meta_data_.height_; i++)
-      memcpy(ptr + i * handle->meta_data_.pitches_[0],
-	     byteaddr + i * handle->meta_data_.pitches_[0],
-	     handle->meta_data_.pitches_[0]);
+  for (int i = 0; i < 24/*handle->meta_data_.height_*/; i++)
+    memcpy(ptr + i * handle->meta_data_.pitches_[0],
+           byteaddr + i * 96,
+           96);
 
   Unmap(handle->meta_data_.prime_fd_, ptr, size);
+
+  ptr = (uint8_t *) Map(handle->meta_data_.prime_fd_, size);
+  FILE* f = fopen("dump.txt", "w");
+  for (i=0; i < handle->meta_data_.height_; i++) {
+    for (j=0; j < handle->meta_data_.pitches_[0]; j++) {
+      fprintf(f, "%d ", ptr[i*handle->meta_data_.height_+ j]);
+    }
+  }
+  fclose(f);
+  Unmap(handle->meta_data_.prime_fd_, ptr, size);
+
   needs_texture_upload_ = false;
+
 }
 };
