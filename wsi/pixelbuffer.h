@@ -54,6 +54,9 @@ class PixelBuffer {
     return needs_texture_upload_;
   }
 
+  void TextureUploadDone() {
+    needs_texture_upload_ = false;
+  }
   // Updates resource with pixel data addr.
   void Refresh(void* addr, const ResourceHandle& resource);
 

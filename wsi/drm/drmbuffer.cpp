@@ -232,48 +232,48 @@ const ResourceHandle& DrmBuffer::GetGpuResource(GpuDisplay egl_display,
     image_.texture_ = texture;
   }
 
-  GLuint texture;
-  glGenTextures(1, &texture);
-  if (pixel_buffer_ && pixel_buffer_->NeedsTextureUpload()) {
-    glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
-    glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
-  }
+  if (pixel_buffer_) {
+    if (pixel_buffer_->NeedsTextureUpload()) {
+      glBindTexture(target, image_.texture_);
+      GLenum gl_format;
+      GLenum gl_pixel_type;
+      switch (format_) {
+      case DRM_FORMAT_XRGB8888:
+        gl_format = GL_BGRA_EXT;
+        gl_pixel_type = GL_UNSIGNED_BYTE;
+        break;
+      case DRM_FORMAT_ARGB8888:
+        gl_format = GL_BGRA_EXT;
+        gl_pixel_type = GL_UNSIGNED_BYTE;
+        break;
+      case DRM_FORMAT_RGB565:
+        gl_format = GL_RGB;
+        gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
+        break;
+      default:
+        break;
+      }
 
-  glBindTexture(target, texture);
-  if (pixel_buffer_ && pixel_buffer_->NeedsTextureUpload()) {
-    GLenum gl_format;
-    GLenum gl_pixel_type;
-    switch (format_) {
-    case DRM_FORMAT_XRGB8888:
-      gl_format = GL_BGRA_EXT;
-      gl_pixel_type = GL_UNSIGNED_BYTE;
-      break;
-    case DRM_FORMAT_ARGB8888:
-      gl_format = GL_BGRA_EXT;
-      gl_pixel_type = GL_UNSIGNED_BYTE;
-      break;
-    case DRM_FORMAT_RGB565:
-      gl_format = GL_RGB;
-      gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
-      break;
-    default:
-      break;
+      glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
+      glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+
+      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+      glTexImage2D(GL_TEXTURE_2D, 0, gl_format, width_, height_, 0, gl_format,
+                   gl_pixel_type, data_);
+      glGenerateMipmap(GL_TEXTURE_2D);
+
+      pixel_buffer_->TextureUploadDone();
+
     }
-
-
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_format, width_, height_, 0, gl_format,
-                 gl_pixel_type, data_);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
   } else {
+    glBindTexture(target, image_.texture_);
     glEGLImageTargetTexture2DOES(target, (GLeglImageOES)image_.image_);
   }
 
 
   glBindTexture(target, 0);
-  image_.texture_ = texture;
 
   if (!external_import && image_.fb_ == 0) {
     glGenFramebuffers(1, &image_.fb_);
