@@ -62,6 +62,18 @@
 #define GBM_BO_USE_CURSOR GBM_BO_USE_CURSOR_64X64
 #endif
 
+#define DMA_BUF_SYNC_READ (1 << 0)
+#define DMA_BUF_SYNC_WRITE (2 << 0)
+#define DMA_BUF_SYNC_RW (DMA_BUF_SYNC_READ | DMA_BUF_SYNC_WRITE)
+#define DMA_BUF_SYNC_START (0 << 2)
+#define DMA_BUF_SYNC_END (1 << 2)
+#define DMA_BUF_BASE 'b'
+#define DMA_BUF_IOCTL_SYNC _IOW(DMA_BUF_BASE, 0, struct dma_buf_sync)
+
+struct dma_buf_sync {
+  __u64 flags;
+};
+
 struct iahwc_backend {
   struct weston_backend base;
   struct weston_compositor *compositor;
@@ -707,6 +719,10 @@ static int init_egl(struct iahwc_backend *b) {
   return 0;
 }
 
+static void iahwc_bo_destroy(struct gbm_bo* bo) {
+  gbm_bo_destroy(bo);
+}
+
 /**
  * Add Overlay information to the list managed by the output.
  */
@@ -751,10 +767,82 @@ iahwc_overlay_destroy(struct iahwc_output *output)
 
 	wl_list_for_each_safe(plane, next, &output->overlay_list, link) {
 	    b->iahwc_destroy_layer(b->iahwc_device, 0, plane_shm->overlay_layer_id);
-	    gbm_bo_destroy(plane->overlay_bo);
+	    iahwc_bo_destroy(plane->overlay_bo);
 	    wl_list_remove(&plane->link);
 	    free(plane);
 	}
+}
+
+static struct gbm_bo* iahwc_bo_create(struct iahwc_backend *b,
+                                      uint32_t w,
+                                      uint32_t h, int format) {
+
+  uint32_t gbm_format = format;
+  if (gbm_format == 0)
+    gbm_format = GBM_FORMAT_XRGB8888;
+
+  uint32_t flags = 0;
+
+  flags |= (GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR);
+
+  w = 256;
+  h = 256;
+  // XXX/TODO: For cursor
+  /* if (layer_type == kLayerCursor) { */
+  /*   if (w < preferred_cursor_width_) */
+  /*     w = preferred_cursor_width_; */
+
+  /*   if (h < preferred_cursor_height_) */
+  /*     h = preferred_cursor_height_; */
+  /* } */
+
+  struct gbm_bo *bo = gbm_bo_create(b->gbm, w, h, gbm_format, flags);
+
+  // Fallbacks?
+  /* if (!bo) { */
+  /*   flags &= ~GBM_BO_USE_SCANOUT; */
+  /*   bo = gbm_bo_create(device_, w, h, gbm_format, flags); */
+  /* } */
+
+  /* if (!bo) { */
+  /*   flags &= ~GBM_BO_USE_RENDERING; */
+  /*   bo = gbm_bo_create(device_, w, h, gbm_format, flags); */
+  /* } */
+
+  if (!bo) {
+    weston_log("Failed to create gbm_bo %m");
+    return NULL;
+  }
+
+  return bo;
+}
+
+static void* iahwc_bo_map(uint32_t prime_fd, size_t size) {
+  void* addr =
+    mmap(NULL, size, (PROT_READ | PROT_WRITE), MAP_SHARED, prime_fd, 0);
+  if (addr == MAP_FAILED)
+    return NULL;
+
+  struct dma_buf_sync sync_start = {0};
+  sync_start.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW;
+  int rv = ioctl(prime_fd, DMA_BUF_IOCTL_SYNC, &sync_start);
+  if (rv) {
+    weston_log("DMA_BUF_IOCTL_SYNC failed during Map \n");
+    munmap(addr, size);
+    return NULL;
+  }
+
+  return addr;
+}
+
+static void iahwc_bo_unmap(uint32_t prime_fd, void* addr, size_t size) {
+  if (addr) {
+    struct dma_buf_sync sync_start = {0};
+    sync_start.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW;
+    ioctl(prime_fd, DMA_BUF_IOCTL_SYNC, &sync_start);
+    munmap(addr, size);
+    addr = NULL;
+  }
 }
 
 static struct weston_plane *iahwc_output_prepare_cursor_view(
@@ -763,7 +851,11 @@ static struct weston_plane *iahwc_output_prepare_cursor_view(
   struct weston_buffer_viewport *viewport = &ev->surface->buffer_viewport;
   struct wl_shm_buffer *shmbuf;
   float x, y;
+  int i;
   struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
+  uint64_t stride, format;
+  uint8_t *shm_buffer_data, *mapped_buffer;
+
   if (output->cursor_view)
     return NULL;
   if (ev->surface->buffer_ref.buffer == NULL)
@@ -785,6 +877,7 @@ static struct weston_plane *iahwc_output_prepare_cursor_view(
   if (ev->surface->width > b->cursor_width ||
       ev->surface->height > b->cursor_height)
     return NULL;
+
   output->cursor_view = ev;
   weston_view_to_global_float(ev, 0, 0, &x, &y);
   output->cursor_plane.x = x;
@@ -798,41 +891,67 @@ static struct weston_plane *iahwc_output_prepare_cursor_view(
   int32_t surfheight = ev->surface->height;
 
   iahwc_add_overlay_info(output, buffer->shm_buffer, 0, cursor_layer_id);
+  stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+  format = wl_shm_buffer_get_format(buffer->shm_buffer);
+  shm_buffer_data = (uint8_t*) wl_shm_buffer_get_data(buffer->shm_buffer);
 
-  struct iahwc_raw_pixel_data dbo;
-  dbo.width = surfwidth;
-  dbo.height = surfheight;
-  dbo.stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-  dbo.format = wl_shm_buffer_get_format(buffer->shm_buffer);
-  dbo.buffer = wl_shm_buffer_get_data(buffer->shm_buffer);
-
-  switch (dbo.format) {
+  switch (format) {
   case WL_SHM_FORMAT_XRGB8888:
-	  dbo.format = DRM_FORMAT_XRGB8888;
+	  format = DRM_FORMAT_XRGB8888;
 	  break;
   case WL_SHM_FORMAT_ARGB8888:
-	  dbo.format = DRM_FORMAT_ARGB8888;
+	  format = DRM_FORMAT_ARGB8888;
 	  break;
   case WL_SHM_FORMAT_RGB565:
-	  dbo.format = DRM_FORMAT_RGB565;
+	  format = DRM_FORMAT_RGB565;
 	  break;
   case WL_SHM_FORMAT_YUV420:
-	  dbo.format = DRM_FORMAT_YUV420;
+	  format = DRM_FORMAT_YUV420;
 	  break;
   case WL_SHM_FORMAT_NV12:
-	  dbo.format = DRM_FORMAT_NV12;
+	  format = DRM_FORMAT_NV12;
 	  break;
   case WL_SHM_FORMAT_YUYV:
-	  dbo.format = DRM_FORMAT_YUYV	;
+	  format = DRM_FORMAT_YUYV;
 	  break;
   default:
 	  weston_log("warning: unknown shm buffer format: %08x\n",
-		     dbo.format);
+               format);
   }
+
+  struct gbm_bo* bo = iahwc_bo_create(b, surfwidth, surfheight, format);
+  uint64_t prime_fd = gbm_bo_get_fd(bo);
+  uint64_t bo_stride = gbm_bo_get_stride(bo);
+
+  mapped_buffer = (uint8_t*) iahwc_bo_map(prime_fd, surfheight * bo_stride);
+  if (!mapped_buffer)
+    weston_log("unable to map cursor bo");
+
   wl_shm_buffer_begin_access(buffer->shm_buffer);
-  b->iahwc_layer_set_raw_pixel_data(b->iahwc_device, 0, cursor_layer_id,
-                                    dbo);
+
+  for (i = 0; i < surfheight; i++)
+    memcpy(mapped_buffer + i * bo_stride,
+           shm_buffer_data + i * stride,
+           stride);
+
   wl_shm_buffer_end_access(buffer->shm_buffer);
+  iahwc_bo_unmap(prime_fd, (void*)mapped_buffer, surfheight * bo_stride);
+
+  iahwc_add_overlay_info(output, 0, bo, cursor_layer_id);
+  b->iahwc_layer_set_bo(b->iahwc_device, 0, cursor_layer_id, bo);
+
+  mapped_buffer = (uint8_t*) iahwc_bo_map(prime_fd, surfheight * bo_stride);
+  FILE *f = fopen("dump.txt", "w");
+  for (i=0; i < surfheight * bo_stride; i++) {
+    fprintf(f, "%d ", mapped_buffer[i]);
+  }
+  fclose(f);
+  iahwc_bo_unmap(prime_fd, (void*)mapped_buffer, surfheight * bo_stride);
+
+  // Each call to gbm_bo_get_fd() returns a new
+  // file descriptor and the caller is responsible for closing the file
+  // descriptor.
+  close(prime_fd);
 
   iahwc_rect_t source_crop = {0, 0, surfwidth, surfheight};
 

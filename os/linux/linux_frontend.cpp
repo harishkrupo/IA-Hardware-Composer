@@ -322,6 +322,7 @@ IAHWC::IAHWCLayer::~IAHWCLayer() {
 }
 
 int IAHWC::IAHWCLayer::SetBo(gbm_bo* bo) {
+  fprintf(stderr, "hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   int32_t width, height;
 
   ::close(hwc_handle_.import_data.fd);
@@ -346,6 +347,7 @@ int IAHWC::IAHWCLayer::SetBo(gbm_bo* bo) {
 }
 
 int IAHWC::IAHWCLayer::SetRawPixelData(iahwc_raw_pixel_data bo) {
+  fprintf(stderr, "hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   hwc_handle_.meta_data_.width_ = bo.width;
   hwc_handle_.meta_data_.height_ = bo.height;
   hwc_handle_.meta_data_.pitches_[0] = bo.stride;
