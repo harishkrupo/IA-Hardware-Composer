@@ -70,7 +70,7 @@ void OverlayLayer::SetBuffer(HWCNativeHandle handle, int32_t acquire_fence,
   std::shared_ptr<OverlayBuffer> buffer(NULL);
 
   if (resource_manager && register_buffer) {
-    buffer = resource_manager->FindCachedBuffer(GETNATIVEBUFFER(handle));
+    //buffer = resource_manager->FindCachedBuffer(GETNATIVEBUFFER(handle));
   }
 
   if (buffer == NULL) {
@@ -82,7 +82,7 @@ void OverlayLayer::SetBuffer(HWCNativeHandle handle, int32_t acquire_fence,
     buffer->InitializeFromNativeHandle(handle, resource_manager,
                                        is_cursor_layer);
     if (register_buffer) {
-      resource_manager->RegisterBuffer(GETNATIVEBUFFER(handle), buffer);
+    //  resource_manager->RegisterBuffer(GETNATIVEBUFFER(handle), buffer);
     }
   }
 

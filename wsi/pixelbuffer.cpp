@@ -71,7 +71,7 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
   needs_texture_upload_ = true;
   const HWCNativeHandle &handle = resource.handle_;
   size_t size = handle->meta_data_.height_ * handle->meta_data_.pitches_[0];
-  uint8_t *ptr = (uint8_t*) Map(handle->meta_data_.prime_fds_[0], size);
+  uint8_t *ptr = (uint8_t*) Map(handle->meta_data_.prime_fd_, size);
   if (!ptr) {
     return;
   }
@@ -82,7 +82,7 @@ void PixelBuffer::Refresh(void *addr, const ResourceHandle &resource) {
          byteaddr + i * orig_stride_,
          orig_stride_);
 
-  Unmap(handle->meta_data_.prime_fds_[0], ptr, size);
+  Unmap(handle->meta_data_.prime_fd_, ptr, size);
   needs_texture_upload_ = false;
 }
 };
