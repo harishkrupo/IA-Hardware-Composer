@@ -34,52 +34,6 @@ script:
 - sudo cp ninja /usr/bin/
 - popd
 
-#clone and build libdrm : dependency
-- git clone https://github.com/intel/external-libdrm /tmp/libdrm
-- pushd /tmp/libdrm
-- ./autogen.sh --disable-radeon --disable-nouveau --disable-amdgpu --enable-udev --enable-libkms --prefix=$WLD
-- make -j5 && make install
-- popd
-
-# #clone and build mesa : dependency
-- git clone https://github.com/intel/external-mesa /tmp/mesa
-- pushd /tmp/mesa
-- ./autogen.sh --prefix=$WLD --with-platforms=surfaceless --disable-dri3 --enable-shared-glapi --disable-glx --disable-glx-tls --disable-gbm --without-gallium-drivers --with-dri-drivers=i965 --with-vulkan-drivers=intel
-- make CFLAGS=-DSYS_memfd_create=319 CPPFLAGS=--std=c11 -j5 && make install
-- popd
-
-# #clone and build minigbm : dependency
-- git clone https://github.com/intel/minigbm /tmp/minigbm
-- pushd /tmp/minigbm
-- export DRV_I915=1
-- make CFLAGS=-DDRV_I915=1 -j5
-- make install DESTDIR=$WLD LIBDIR=lib/
-- popd
-
-#clone and build libva : dependency
-- git clone https://github.com/android-ia/libva.git /tmp/libva
-- pushd /tmp/libva
-- ./autogen.sh --prefix=$WLD
-- make -j5 && make install
-- popd
-
-#clone and build vaapi : dependency
-- git clone https://github.com/android-ia/vaapi.git /tmp/vaapi
-- pushd /tmp/vaapi
-- ./autogen.sh --prefix=$WLD
-- make -j5 && make install
-- popd
-
-# finally, build the hardware composer itself
-- ./autogen.sh --prefix=$WLD
-- make -j5
-- make clean
-- ./autogen.sh --prefix=$WLD --disable-hotplug-support
-- make -j5
-- make clean
-- ./autogen.sh --prefix=$WLD --enable-dummy-compositor
-- make -j5
-
 # Test Weston plugin
 - export WLD=/tmp/wl-install
 - export LD_LIBRARY_PATH=$WLD/lib
@@ -91,6 +45,7 @@ script:
 - mkdir -p $WLD/share/aclocal
 
 #clone and build libdrm : dependency
+- git clone https://github.com/intel/external-libdrm /tmp/libdrm
 - pushd /tmp/libdrm
 - git clean -xfd > /dev/null
 - ./autogen.sh --disable-radeon --disable-nouveau --disable-amdgpu --enable-udev --enable-libkms --prefix=$WLD
@@ -132,7 +87,8 @@ script:
 - ninja -C builddir/ install
 - popd
 
-#Build mesa with gbm and overwrite minigbm
+#Build mesa with gbm
+- git clone https://github.com/intel/external-mesa /tmp/mesa
 - pushd .
 - cd /tmp/mesa
 - git clean -xfd > /dev/null
@@ -141,6 +97,7 @@ script:
 - popd
 
 #clone and build libva : dependency
+- git clone https://github.com/android-ia/libva.git /tmp/libva
 - pushd /tmp/libva
 - git clean -xfd > /dev/null
 - ./autogen.sh --prefix=$WLD
@@ -148,6 +105,7 @@ script:
 - popd
 
 #clone and build vaapi : dependency
+- git clone https://github.com/android-ia/vaapi.git /tmp/vaapi
 - pushd /tmp/vaapi
 - git clean -xfd > /dev/null
 - ./autogen.sh --prefix=$WLD
@@ -157,10 +115,33 @@ script:
 #Build weston and weston plugin
 - git clone -b iahwc-plugin https://github.com/intel/external-weston.git ../weston
 - cd ../weston
-#HACK: Weston's paths are hardcoded to ../iahwc/..
+#HACK: Weston's paths are hardcoded to ../iahwc/.../
 - cp -r ../IA-Hardware-Composer ../iahwc
 - cd -
 - os/linux/weston/build_script.sh --weston-dir=../weston --iahwc-dir=$(pwd) --build
+
+- cd $TRAVIS_BUILD_DIR
+
+#Replace mesa's libgbm with minigbm's libgbm
+- git clone https://github.com/intel/minigbm /tmp/minigbm
+- pushd /tmp/minigbm
+- export DRV_I915=1
+- make CFLAGS=-DDRV_I915=1 -j5
+- make install DESTDIR=$WLD LIBDIR=lib/
+- popd
+
+#Build hardware composer against minigbm
+- git clean -xfd
+- ./autogen.sh --prefix=$WLD
+- make -j5
+
+- git clean -xfd
+- ./autogen.sh --prefix=$WLD --disable-hotplug-support
+- make -j5
+
+- git clean -xfd
+- ./autogen.sh --prefix=$WLD --enable-dummy-compositor
+- make -j5
 
 branches:
   only:
