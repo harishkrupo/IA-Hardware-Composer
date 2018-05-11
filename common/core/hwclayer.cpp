@@ -44,6 +44,7 @@ void HwcLayer::SetNativeHandle(HWCNativeHandle handle) {
 }
 
 void HwcLayer::SetTransform(int32_t transform) {
+  ALOGE("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   if (transform != transform_) {
     layer_cache_ |= kLayerAttributesChanged;
     transform_ = transform;
@@ -52,6 +53,7 @@ void HwcLayer::SetTransform(int32_t transform) {
 }
 
 void HwcLayer::SetAlpha(uint8_t alpha) {
+  ALOGE("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   if (alpha_ != alpha) {
     alpha_ = alpha;
     UpdateRenderingDamage(display_frame_, display_frame_, true);
@@ -59,6 +61,7 @@ void HwcLayer::SetAlpha(uint8_t alpha) {
 }
 
 void HwcLayer::SetBlending(HWCBlending blending) {
+  ALOGE("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   if (blending != blending_) {
     blending_ = blending;
     UpdateRenderingDamage(display_frame_, display_frame_, true);
@@ -66,6 +69,7 @@ void HwcLayer::SetBlending(HWCBlending blending) {
 }
 
 void HwcLayer::SetSourceCrop(const HwcRect<float>& source_crop) {
+  ALOGE("hkps %s:%d source_crop %s source_crop_ %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(source_crop).c_str(), StringifyRect(source_crop_).c_str());
   if ((source_crop.left != source_crop_.left) ||
       (source_crop.right != source_crop_.right) ||
       (source_crop.top != source_crop_.top) ||
@@ -83,6 +87,7 @@ void HwcLayer::SetSourceCrop(const HwcRect<float>& source_crop) {
 
 void HwcLayer::SetDisplayFrame(const HwcRect<int>& display_frame,
                                int translate_x_pos, int translate_y_pos) {
+  ALOGE("hkps %s:%d diplay_frame %s display_frame_ %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(display_frame).c_str(), StringifyRect(display_frame_).c_str());
   if (((display_frame.left + translate_x_pos) != display_frame_.left) ||
       ((display_frame.right + translate_x_pos) != display_frame_.right) ||
       ((display_frame.top + translate_y_pos) != display_frame_.top) ||
@@ -106,6 +111,7 @@ void HwcLayer::SetDisplayFrame(const HwcRect<int>& display_frame,
 }
 
 void HwcLayer::SetSurfaceDamage(const HwcRegion& surface_damage) {
+  ALOGE("hkps %s:%d source crop %s display frame %s damage %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(source_crop_).c_str(), StringifyRect(display_frame_).c_str(), StringifyRegion(surface_damage).c_str());
   uint32_t rects = surface_damage.size();
   state_ |= kLayerContentChanged;
   HwcRect<int> rect;
@@ -146,6 +152,7 @@ void HwcLayer::SetSurfaceDamage(const HwcRegion& surface_damage) {
 }
 
 void HwcLayer::SetVisibleRegion(const HwcRegion& visible_region) {
+  ALOGE("hkps %s:%d visible region %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRegion(visible_region).c_str());
   uint32_t rects = visible_region.size();
   const HwcRect<int>& new_region = visible_region.at(0);
   HwcRect<int> new_visible_rect = new_region;
@@ -259,6 +266,7 @@ void HwcLayer::Validate() {
 }
 
 void HwcLayer::SetLayerZOrder(uint32_t order) {
+  ALOGE("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   if (z_order_ != static_cast<int>(order)) {
     z_order_ = order;
     state_ |= kZorderChanged;
@@ -365,16 +373,21 @@ bool HwcLayer::IsCursorLayer() const {
 void HwcLayer::UpdateRenderingDamage(const HwcRect<int>& old_rect,
                                      const HwcRect<int>& newrect,
                                      bool same_rect) {
+  ALOGE("hkps %s:%d %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(current_rendering_damage_).c_str());
   if (current_rendering_damage_.empty()) {
     current_rendering_damage_ = old_rect;
   } else {
     CalculateRect(old_rect, current_rendering_damage_);
   }
 
+  ALOGE("hkps %s:%d %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(current_rendering_damage_).c_str());
+
   if (same_rect)
     return;
 
   CalculateRect(newrect, current_rendering_damage_);
+
+  ALOGE("hkps %s:%d %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(current_rendering_damage_).c_str());
 }
 
 const HwcRect<int>& HwcLayer::GetLayerDamage() {

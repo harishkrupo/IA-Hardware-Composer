@@ -132,8 +132,10 @@ bool GLRenderer::Draw(const std::vector<RenderState> &render_states,
       damage.left, damage.top, damage.right - damage.left,
       damage.bottom - damage.top);
 #endif
+  ALOGE("hkps %s:%d total render states %d\n", __PRETTY_FUNCTION__, __LINE__, render_states.size());
   for (const RenderState &state : render_states) {
     unsigned size = state.layer_state_.size();
+    ALOGE("hkps %s:%d total layers %d full (%d, %d) (%d, %d) scissor (%d, %d) (%d, %d)\n", __PRETTY_FUNCTION__, __LINE__, size, state.x_, state.y_, state.width_, state.height_, state.scissor_x_, state.scissor_y_, state.scissor_width_, state.scissor_height_);
     GLProgram *program = GetProgram(size);
     if (!program)
       continue;

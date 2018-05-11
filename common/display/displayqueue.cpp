@@ -881,6 +881,8 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
     return false;
   }
 
+  ALOGE("hkps %s:%d release fence %d\n", __PRETTY_FUNCTION__, __LINE__, fence);
+
   // Mark any surfaces as not in use. These surfaces
   // where not marked earlier as they where onscreen.
   // Doing it here also ensures that if this surface

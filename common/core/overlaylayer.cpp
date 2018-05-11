@@ -231,7 +231,7 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
   surface_damage_ = layer->GetLayerDamage();
 
   SetBuffer(layer->GetNativeHandle(), layer->GetAcquireFence(),
-            resource_manager, true);
+            resource_manager, false);
 
   if (!surface_damage_.empty()) {
     if (type_ == kLayerCursor) {
@@ -482,7 +482,7 @@ void OverlayLayer::CloneLayer(const OverlayLayer* layer,
   SetDisplayFrame(display_frame);
   SetSourceCrop(layer->GetSourceCrop());
   SetBuffer(layer->GetBuffer()->GetOriginalHandle(), aquire_fence,
-            resource_manager, true);
+            resource_manager, false);
   ValidateForOverlayUsage();
   surface_damage_ = display_frame;
   transform_ = layer->transform_;

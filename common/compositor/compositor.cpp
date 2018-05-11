@@ -66,6 +66,7 @@ bool Compositor::Draw(DisplayPlaneStateList &comp_planes,
   std::vector<DrawState> draw_state;
   std::vector<DrawState> media_state;
 
+  ALOGE("hkps %s:%d total composition planes %d\n", __PRETTY_FUNCTION__, __LINE__, comp_planes.size());
   for (DisplayPlaneState &plane : comp_planes) {
     if (plane.Scanout()) {
       if (!plane.IsSurfaceRecycled()) {
@@ -107,11 +108,21 @@ bool Compositor::Draw(DisplayPlaneStateList &comp_planes,
         plane.UpdateDamage(plane.GetDisplayFrame());
       }
 
+      ALOGE("hkps %s:%d surface's surface damage %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(surface->GetSurfaceDamage()).c_str());
+      ALOGE("hkps %s:%d total composition regions %d\n", __PRETTY_FUNCTION__, __LINE__, comp_regions.size());
+      for (auto &comp_region : comp_regions) {
+        ALOGE("hkps %s:%d total layers %d frame %s\n", __PRETTY_FUNCTION__, __LINE__, comp_region.source_layers.size(), StringifyRect(comp_region.frame).c_str());
+      }
+
       if (regions_empty) {
         SeparateLayers(dedicated_layers, comp->GetSourceLayers(), display_frame,
                        surface->GetSurfaceDamage(), comp_regions);
       }
 
+      ALOGE("hkps %s:%d total composition regions %d\n", __PRETTY_FUNCTION__, __LINE__, comp_regions.size());
+      for (auto &comp_region : comp_regions) {
+        ALOGE("hkps %s:%d total layers %d frame %s\n", __PRETTY_FUNCTION__, __LINE__, comp_region.source_layers.size(), StringifyRect(comp_region.frame).c_str());
+      }
       std::vector<size_t>().swap(dedicated_layers);
       if (comp_regions.empty())
         continue;

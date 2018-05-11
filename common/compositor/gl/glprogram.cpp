@@ -340,8 +340,10 @@ void GLProgram::UseProgram(const RenderState &state, GLuint viewport_width,
               (state.width_) / (float)viewport_width,
               (state.height_) / (float)viewport_height);
 
+  ALOGE("================================================================");
   for (unsigned src_index = 0; src_index < size; src_index++) {
     const RenderState::LayerState &src = state.layer_state_[src_index];
+    ALOGE("hkps %s:%d layer %d texture %d crop (%f, %f) (%f, %f)\n", __PRETTY_FUNCTION__, __LINE__, src_index, src.handle_, src.crop_bounds_[0], src.crop_bounds_[1], src.crop_bounds_[2] - src.crop_bounds_[0], src.crop_bounds_[3] - src.crop_bounds_[1]);
     glUniform1f(alpha_loc_ + src_index, src.alpha_);
     glUniform1f(premult_loc_ + src_index, src.premult_);
     glUniform4f(crop_loc_ + src_index, src.crop_bounds_[0], src.crop_bounds_[1],
@@ -352,6 +354,7 @@ void GLProgram::UseProgram(const RenderState &state, GLuint viewport_width,
     glActiveTexture(GL_TEXTURE0 + src_index);
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, src.handle_);
   }
+  ALOGE("================================================================");
 }
 
 }  // namespace hwcomposer
