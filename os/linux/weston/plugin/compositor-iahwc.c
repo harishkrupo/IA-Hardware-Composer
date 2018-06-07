@@ -202,6 +202,8 @@ struct iahwc_output {
   struct iahwc_spinlock spin_lock;
   struct timespec last_vsync_ts;
   uint32_t total_layers;
+	struct wl_event_source *finish_frame_timer;
+  bool frame_presented;
 
   enum dpms_enum current_dpms;
 };
@@ -241,6 +243,28 @@ static struct iahwc_pending_state *iahwc_pending_state_alloc(
   return ret;
 }
 
+static void
+frame_done(void* data)
+{
+  struct iahwc_output* output = data;
+	struct timespec ts;
+
+	/* XXX: use the presentation extension for proper timings */
+
+	/*
+	 * This is the fallback case, where Presentation extension is not
+	 * available from the parent compositor. We do not know the base for
+	 * 'time', so we cannot feed it to finish_frame(). Do the only thing
+	 * we can, and pretend finish_frame time is when we process this
+	 * event.
+	 */
+  uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
+    WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK |
+    WP_PRESENTATION_FEEDBACK_KIND_VSYNC;
+	weston_compositor_read_presentation_clock(output->base.compositor, &ts);
+	weston_output_finish_frame(&output->base, &ts, flags);
+}
+
 /**
  * Free a iahwc_pending_state structure
  *
@@ -274,17 +298,30 @@ static int iahwc_output_repaint(struct weston_output *output_base,
   struct iahwc_output *output = to_iahwc_output(output_base);
   struct iahwc_backend *backend = to_iahwc_backend(output->base.compositor);
 
+	struct timespec rs, re, rdiff;
+
   weston_log("release fence is %d\n", output->release_fence);
   if (output->release_fence > 0) {
     close(output->release_fence);
     output->release_fence = 0;
   }
 
+	weston_compositor_read_presentation_clock(output_base->compositor, &rs);
   backend->iahwc_present_display(backend->iahwc_device, 0,
                                  &output->release_fence);
+	weston_compositor_read_presentation_clock(output_base->compositor, &re);
+	timespec_sub(&rdiff, &re, &rs);
+  weston_log("hkps %s:%d present display took %lu\n", __PRETTY_FUNCTION__, __LINE__, rdiff.tv_nsec);
 
+  /* wl_event_source_timer_update(output->finish_frame_timer, 1); */
+	struct wl_event_loop *loop;
+
+	loop = wl_display_get_event_loop(backend->compositor->wl_display);
+
+	wl_event_loop_add_idle(loop, frame_done, output);
   lock(&output->spin_lock);
   output->state_invalid = false;
+  output->frame_presented = true;
   unlock(&output->spin_lock);
   return 0;
 }
@@ -294,10 +331,8 @@ static void iahwc_output_start_repaint_loop(struct weston_output *output_base) {
 
   /* if we cannot page-flip, immediately finish frame */
   lock(&output->spin_lock);
-  if (output->state_invalid) {
     weston_output_finish_frame(output_base, NULL,
                                WP_PRESENTATION_FEEDBACK_INVALID);
-  }
   unlock(&output->spin_lock);
 }
 
@@ -329,7 +364,6 @@ static void iahwc_repaint_flush(struct weston_compositor *compositor,
   struct iahwc_backend *b = to_iahwc_backend(compositor);
   struct iahwc_pending_state *pending_state = repaint_data;
 
-  iahwc_pending_state_free(pending_state);
   b->repaint_data = NULL;
 }
 
@@ -1135,6 +1169,7 @@ static int iahwc_output_enable(struct weston_output *base) {
   struct iahwc_output *output = to_iahwc_output(base);
   struct iahwc_backend *b = to_iahwc_backend(base->compositor);
   struct weston_mode *m;
+  struct wl_event_loop *loop;
 
   if (output->backlight) {
     weston_log("Initialized backlight, device %s\n", output->backlight->path);
@@ -1163,6 +1198,9 @@ static int iahwc_output_enable(struct weston_output *base) {
              output->connector_id, output->crtc_id);
   wl_list_for_each(m, &output->base.mode_list, link) weston_log_continue(
       STAMP_SPACE "mode %dx%d@%.1d\n", m->width, m->height, m->refresh);
+	loop = wl_display_get_event_loop(b->compositor->wl_display);
+	output->finish_frame_timer =
+		wl_event_loop_add_timer(loop, frame_done, output);
 
   lock(&output->spin_lock);
   output->state_invalid = true;
@@ -1227,28 +1265,31 @@ static int vsync_callback(iahwc_callback_data_t data, iahwc_display_t display,
 
   weston_compositor_read_presentation_clock(output->base.compositor, &ts);
   lock(&output->spin_lock);
-  // Take an avg of last two frame vsync events to reduce
-  // any noise.
-  output->last_vsync_ts.tv_nsec =
-      (output->last_vsync_ts.tv_nsec + timestamp) / 2;
-  output->last_vsync_ts.tv_sec =
-      output->last_vsync_ts.tv_nsec / (1000 * 1000 * 1000);
+  if (output->frame_presented && !output->state_invalid)
 
-  if (!output->state_invalid &&
-      output->base.repaint_status == REPAINT_AWAITING_COMPLETION) {
-    if (output->last_vsync_ts.tv_nsec <
-        millihz_to_nsec(output->base.current_mode->refresh)) {
-      weston_output_finish_frame(&output->base, &ts,
-                                 WP_PRESENTATION_FEEDBACK_INVALID);
-      unlock(&output->spin_lock);
-      return 0;
-    }
+  output->frame_presented = false;
+  /* // Take an avg of last two frame vsync events to reduce */
+  /* // any noise. */
+  /* output->last_vsync_ts.tv_nsec = */
+  /*     (output->last_vsync_ts.tv_nsec + timestamp) / 2; */
+  /* output->last_vsync_ts.tv_sec = */
+  /*     output->last_vsync_ts.tv_nsec / (1000 * 1000 * 1000); */
 
-    uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
-                     WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK |
-                     WP_PRESENTATION_FEEDBACK_KIND_VSYNC;
-    weston_output_finish_frame(&output->base, &ts, flags);
-  }
+  /* if (!output->state_invalid && */
+  /*     output->base.repaint_status == REPAINT_AWAITING_COMPLETION) { */
+  /*   if (output->last_vsync_ts.tv_nsec < */
+  /*       millihz_to_nsec(output->base.current_mode->refresh)) { */
+  /*     /\* weston_output_finish_frame(&output->base, &ts, *\/ */
+  /*     /\*                            WP_PRESENTATION_FEEDBACK_INVALID); *\/ */
+  /*     unlock(&output->spin_lock); */
+  /*     return 0; */
+  /*   } */
+
+  /*   uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION | */
+  /*                    WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK | */
+  /*                    WP_PRESENTATION_FEEDBACK_KIND_VSYNC; */
+  /*   /\* weston_output_finish_frame(&output->base, &ts, flags); *\/ */
+  /* } */
 
   unlock(&output->spin_lock);
 
