@@ -361,7 +361,7 @@ bool DrmDisplay::Commit(
     const DisplayPlaneStateList &composition_planes,
     const DisplayPlaneStateList &previous_composition_planes,
     bool disable_explicit_fence, int32_t previous_fence, int32_t *commit_fence,
-    bool *previous_fence_released) {
+    bool *previous_fence_released, VblankEventHandler* vbl) {
   // Do the actual commit.
   ScopedDrmAtomicReqPtr pset(drmModeAtomicAlloc());
   *previous_fence_released = false;
@@ -381,7 +381,7 @@ bool DrmDisplay::Commit(
   }
 
   if (!CommitFrame(composition_planes, previous_composition_planes, pset.get(),
-                   flags_, previous_fence, previous_fence_released)) {
+                   flags_, previous_fence, previous_fence_released, vbl)) {
     ETRACE("Failed to Commit layers.");
     return false;
   }
@@ -410,7 +410,7 @@ bool DrmDisplay::CommitFrame(
     const DisplayPlaneStateList &comp_planes,
     const DisplayPlaneStateList &previous_composition_planes,
     drmModeAtomicReqPtr pset, uint32_t flags, int32_t previous_fence,
-    bool *previous_fence_released) {
+    bool *previous_fence_released, VblankEventHandler* vbl) {
   CTRACE();
   if (!pset) {
     ETRACE("Failed to allocate property set %d", -ENOMEM);
@@ -450,7 +450,9 @@ bool DrmDisplay::CommitFrame(
   }
 #endif
 
-  int ret = drmModeAtomicCommit(gpu_fd_, pset, flags, NULL);
+  flags |= DRM_MODE_PAGE_FLIP_EVENT;
+
+  int ret = drmModeAtomicCommit(gpu_fd_, pset, flags, vbl);
   if (ret) {
     ETRACE("Failed to commit pset ret=%s\n", PRINTERROR());
     return false;

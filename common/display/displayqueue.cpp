@@ -858,7 +858,7 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
   bool fence_released = false;
   composition_passed =
       display_->Commit(current_composition_planes, previous_plane_state_,
-                       disable_ovelays, kms_fence_, &fence, &fence_released);
+                       disable_ovelays, kms_fence_, &fence, &fence_released, vblank_handler_.get());
 
   if (fence_released) {
     kms_fence_ = 0;
@@ -1081,7 +1081,7 @@ void DisplayQueue::PresentClonedCommit(DisplayQueue* queue) {
   bool fence_released = false;
   composition_passed =
       display_->Commit(current_composition_planes, previous_plane_state_, false,
-                       kms_fence_, &fence, &fence_released);
+                       kms_fence_, &fence, &fence_released, vblank_handler_.get());
 
   if (fence_released) {
     kms_fence_ = 0;
