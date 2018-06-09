@@ -80,6 +80,7 @@ bool VirtualDisplay::SetActiveConfig(uint32_t /*config*/) {
 
 bool VirtualDisplay::Present(std::vector<HwcLayer *> &source_layers,
                              int32_t *retire_fence,
+                             void* page_flip_data,
                              PixelUploaderCallback * /*call_back*/,
                              bool handle_constraints) {
   CTRACE();

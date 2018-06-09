@@ -186,7 +186,7 @@ bool LogicalDisplayManager::Present(std::vector<HwcLayer*>& source_layers,
     layers_.emplace_back(cursor_layers_.at(j));
   }
 
-  bool success = physical_display_->Present(layers_, retire_fence, call_back,
+  bool success = physical_display_->Present(layers_, retire_fence, NULL, call_back,
                                             handle_constraints);
   std::vector<HwcLayer*>().swap(cursor_layers_);
   std::vector<HwcLayer*>().swap(layers_);

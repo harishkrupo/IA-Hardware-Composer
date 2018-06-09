@@ -88,7 +88,7 @@ class IAHWC : public iahwc_device {
     int GetDisplayConfig(uint32_t* config);
     int SetPowerMode(uint32_t power_mode);
     int ClearAllLayers();
-    int PresentDisplay(int32_t* release_fd);
+    int PresentDisplay(void* page_flip_data, int32_t* release_fd);
     int RegisterVsyncCallback(iahwc_callback_data_t data,
                               iahwc_function_ptr_t hook);
     void RegisterPixelUploaderCallback(iahwc_callback_data_t data,
@@ -156,6 +156,7 @@ class IAHWC : public iahwc_device {
 
  private:
   int GetNumDisplays(int* num_displays);
+  int GetGPUFD(int* gpu_fd);
   int RegisterCallback(int32_t description, uint32_t display_handle,
                        iahwc_callback_data_t data, iahwc_function_ptr_t hook);
   hwcomposer::GpuDevice device_;

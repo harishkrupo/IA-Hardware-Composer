@@ -790,7 +790,7 @@ int main(int argc, char *argv[]) {
                                   frame->layer_bos[j]);
     }
 
-    backend->iahwc_present_display(iahwc_device, 0, &kms_fence);
+    backend->iahwc_present_display(iahwc_device, 0, NULL, &kms_fence);
     frame_total++;
   }
 

@@ -360,6 +360,7 @@ void DrmDisplay::SetHDCPState(HWCContentProtection state,
 bool DrmDisplay::Commit(
     const DisplayPlaneStateList &composition_planes,
     const DisplayPlaneStateList &previous_composition_planes,
+    void* page_flip_data,
     bool disable_explicit_fence, int32_t previous_fence, int32_t *commit_fence,
     bool *previous_fence_released) {
   // Do the actual commit.
@@ -380,7 +381,7 @@ bool DrmDisplay::Commit(
     GetFence(pset.get(), commit_fence);
   }
 
-  if (!CommitFrame(composition_planes, previous_composition_planes, pset.get(),
+  if (!CommitFrame(composition_planes, previous_composition_planes, pset.get(), page_flip_data,
                    flags_, previous_fence, previous_fence_released)) {
     ETRACE("Failed to Commit layers.");
     return false;
@@ -409,7 +410,7 @@ bool DrmDisplay::Commit(
 bool DrmDisplay::CommitFrame(
     const DisplayPlaneStateList &comp_planes,
     const DisplayPlaneStateList &previous_composition_planes,
-    drmModeAtomicReqPtr pset, uint32_t flags, int32_t previous_fence,
+    drmModeAtomicReqPtr pset, void* page_flip_data, uint32_t flags, int32_t previous_fence,
     bool *previous_fence_released) {
   CTRACE();
   if (!pset) {
@@ -450,7 +451,8 @@ bool DrmDisplay::CommitFrame(
   }
 #endif
 
-  int ret = drmModeAtomicCommit(gpu_fd_, pset, flags, NULL);
+  flags |= DRM_MODE_PAGE_FLIP_EVENT;
+  int ret = drmModeAtomicCommit(gpu_fd_, pset, flags, page_flip_data);
   if (ret) {
     ETRACE("Failed to commit pset ret=%s\n", PRINTERROR());
     return false;

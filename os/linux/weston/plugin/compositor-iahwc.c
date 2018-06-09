@@ -104,6 +104,7 @@ struct iahwc_backend {
   uint32_t gbm_format;
 
   IAHWC_PFN_GET_NUM_DISPLAYS iahwc_get_num_displays;
+  IAHWC_PFN_GET_GPU_FD iahwc_get_gpu_fd;
   IAHWC_PFN_REGISTER_CALLBACK iahwc_register_callback;
   IAHWC_PFN_DISPLAY_GET_INFO iahwc_get_display_info;
   IAHWC_PFN_DISPLAY_GET_NAME iahwc_get_display_name;
@@ -137,6 +138,7 @@ struct iahwc_backend {
 
   int32_t cursor_width;
   int32_t cursor_height;
+  struct wl_event_source* drm_read_event;
 };
 
 struct iahwc_mode {
@@ -219,6 +221,38 @@ static inline struct iahwc_backend *to_iahwc_backend(
   return container_of(base->backend, struct iahwc_backend, base);
 }
 
+static void
+iahwc_flip_handler(int fd, unsigned int frame, unsigned int sec,
+                    unsigned int usec, unsigned int crtc_id, void *data)
+{
+  weston_log("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
+	struct iahwc_output *output = (struct iahwc_output*) data;
+  struct timespec ts;
+	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC |
+    WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
+    WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK;
+
+	ts.tv_sec = sec;
+	ts.tv_nsec = usec * 1000;
+
+	weston_output_finish_frame(&output->base, &ts, flags);
+}
+
+static int
+on_drm_read(int fd, uint32_t mask, void *data)
+{
+  weston_log("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
+	struct iahwc_backend *b = data;
+	drmEventContext evctx;
+
+	memset(&evctx, 0, sizeof evctx);
+	evctx.version = 3;
+  evctx.page_flip_handler2 = iahwc_flip_handler;
+
+	drmHandleEvent(fd, &evctx);
+
+	return 1;
+}
 /**
  * Allocate a new iahwc_pending_state
  *
@@ -281,6 +315,7 @@ static int iahwc_output_repaint(struct weston_output *output_base,
   }
 
   backend->iahwc_present_display(backend->iahwc_device, 0,
+                                 output,
                                  &output->release_fence);
 
   lock(&output->spin_lock);
@@ -292,12 +327,11 @@ static int iahwc_output_repaint(struct weston_output *output_base,
 static void iahwc_output_start_repaint_loop(struct weston_output *output_base) {
   struct iahwc_output *output = to_iahwc_output(output_base);
 
+  weston_log("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
   /* if we cannot page-flip, immediately finish frame */
   lock(&output->spin_lock);
-  if (output->state_invalid) {
-    weston_output_finish_frame(output_base, NULL,
-                               WP_PRESENTATION_FEEDBACK_INVALID);
-  }
+  weston_output_finish_frame(output_base, NULL,
+                             WP_PRESENTATION_FEEDBACK_INVALID);
   unlock(&output->spin_lock);
 }
 
@@ -1238,8 +1272,8 @@ static int vsync_callback(iahwc_callback_data_t data, iahwc_display_t display,
       output->base.repaint_status == REPAINT_AWAITING_COMPLETION) {
     if (output->last_vsync_ts.tv_nsec <
         millihz_to_nsec(output->base.current_mode->refresh)) {
-      weston_output_finish_frame(&output->base, &ts,
-                                 WP_PRESENTATION_FEEDBACK_INVALID);
+      /* weston_output_finish_frame(&output->base, &ts, */
+      /*                            WP_PRESENTATION_FEEDBACK_INVALID); */
       unlock(&output->spin_lock);
       return 0;
     }
@@ -1247,7 +1281,7 @@ static int vsync_callback(iahwc_callback_data_t data, iahwc_display_t display,
     uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
                      WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK |
                      WP_PRESENTATION_FEEDBACK_KIND_VSYNC;
-    weston_output_finish_frame(&output->base, &ts, flags);
+    /* weston_output_finish_frame(&output->base, &ts, flags); */
   }
 
   unlock(&output->spin_lock);
@@ -1464,6 +1498,8 @@ static struct iahwc_backend *iahwc_backend_create(
   void *iahwc_dl_handle;
   iahwc_module_t *iahwc_module;
   iahwc_device_t *iahwc_device;
+  struct wl_event_loop* loop;
+  int iahwc_gpu_fd;
 
   const char *device = "/dev/dri/renderD128";
   const char *seat_id = default_seat;
@@ -1494,6 +1530,9 @@ static struct iahwc_backend *iahwc_backend_create(
   b->iahwc_get_num_displays =
       (IAHWC_PFN_GET_NUM_DISPLAYS)iahwc_device->getFunctionPtr(
           iahwc_device, IAHWC_FUNC_GET_NUM_DISPLAYS);
+  b->iahwc_get_gpu_fd =
+    (IAHWC_PFN_GET_GPU_FD)iahwc_device->getFunctionPtr(
+                                                       iahwc_device, IAHWC_FUNC_GET_GPU_FD);
   b->iahwc_create_layer = (IAHWC_PFN_CREATE_LAYER)iahwc_device->getFunctionPtr(
       iahwc_device, IAHWC_FUNC_CREATE_LAYER);
   b->iahwc_destroy_layer =
@@ -1599,6 +1638,13 @@ static struct iahwc_backend *iahwc_backend_create(
   // session_notification XXX?TODO: make necessary changes
   b->session_listener.notify = session_notify;
   wl_signal_add(&compositor->session_signal, &b->session_listener);
+
+  b->iahwc_get_gpu_fd(iahwc_device, &iahwc_gpu_fd);
+
+	loop = wl_display_get_event_loop(compositor->wl_display);
+	b->drm_read_event =
+		wl_event_loop_add_fd(loop, iahwc_gpu_fd,
+                         WL_EVENT_READABLE, on_drm_read, b);
 
   if (init_egl(b) < 0) {
     weston_log("failed to initialize egl\n");

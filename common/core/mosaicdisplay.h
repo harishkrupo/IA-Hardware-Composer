@@ -52,6 +52,7 @@ class MosaicDisplay : public NativeDisplay {
   bool SetPowerMode(uint32_t power_mode) override;
 
   bool Present(std::vector<HwcLayer *> &source_layers, int32_t *retire_fence,
+               void*,
                PixelUploaderCallback *call_back = NULL,
                bool handle_constraints = false) override;
 

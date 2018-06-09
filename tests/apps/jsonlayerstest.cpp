@@ -264,7 +264,7 @@ class HotPlugEventCallback : public hwcomposer::DisplayHotPlugEventCallback {
     // We only support cloned mode for now.
     hwcomposer::NativeDisplay *primary = connected_displays_.at(0);
     int32_t retire_fence = -1;
-    primary->Present(layers, &retire_fence);
+    primary->Present(layers, NULL, &retire_fence);
     fences.emplace_back(retire_fence);
     // store fences for each display for each layer
     unsigned int fence_index = 0;

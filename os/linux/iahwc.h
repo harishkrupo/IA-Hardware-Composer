@@ -80,6 +80,7 @@ enum iahwc_display_configs {
 enum iahwc_function_descriptors {
   IAHWC_FUNC_INVALID = 0,
   IAHWC_FUNC_GET_NUM_DISPLAYS,
+  IAHWC_FUNC_GET_GPU_FD,
   IAHWC_FUNC_REGISTER_CALLBACK,
   IAHWC_FUNC_DISPLAY_GET_INFO,
   IAHWC_FUNC_DISPLAY_GET_NAME,
@@ -141,6 +142,7 @@ typedef struct iahwc_region {
 } iahwc_region_t;
 
 typedef int (*IAHWC_PFN_GET_NUM_DISPLAYS)(iahwc_device_t*, int* num_displays);
+typedef int (*IAHWC_PFN_GET_GPU_FD)(iahwc_device_t*, int* gpu_fd);
 typedef int (*IAHWC_PFN_REGISTER_CALLBACK)(iahwc_device_t*, int descriptor,
                                            iahwc_display_t display_handle,
                                            iahwc_callback_data_t data,
@@ -172,6 +174,7 @@ typedef int (*IAHWC_PFN_DISPLAY_CLEAR_ALL_LAYERS)(
     iahwc_device_t*, iahwc_display_t display_handle);
 typedef int (*IAHWC_PFN_PRESENT_DISPLAY)(iahwc_device_t*,
                                          iahwc_display_t display_handle,
+                                         void* page_flip_data,
                                          int32_t* release_fd);
 typedef int (*IAHWC_PFN_DISABLE_OVERLAY_USAGE)(iahwc_device_t*,
                                                iahwc_display_t display_handle);

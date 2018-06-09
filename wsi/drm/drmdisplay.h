@@ -69,6 +69,7 @@ class DrmDisplay : public PhysicalDisplay {
   void Disable(const DisplayPlaneStateList &composition_planes) override;
   bool Commit(const DisplayPlaneStateList &composition_planes,
               const DisplayPlaneStateList &previous_composition_planes,
+              void* page_flip_data,
               bool disable_explicit_fence, int32_t previous_fence,
               int32_t *commit_fence, bool *previous_fence_released) override;
 
@@ -119,7 +120,7 @@ class DrmDisplay : public PhysicalDisplay {
   bool GetFence(drmModeAtomicReqPtr property_set, int32_t *out_fence);
   bool CommitFrame(const DisplayPlaneStateList &comp_planes,
                    const DisplayPlaneStateList &previous_composition_planes,
-                   drmModeAtomicReqPtr pset, uint32_t flags,
+                   drmModeAtomicReqPtr pset, void* page_flip_data, uint32_t flags,
                    int32_t previous_fence, bool *previous_fence_released);
   uint64_t DrmRGBA(uint16_t, uint16_t red, uint16_t green, uint16_t blue,
                    uint16_t alpha) const;

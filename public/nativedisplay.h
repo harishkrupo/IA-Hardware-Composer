@@ -120,6 +120,7 @@ class NativeDisplay {
    */
   virtual bool Present(std::vector<HwcLayer *> &source_layers,
                        int32_t *retire_fence,
+                       void*,
                        PixelUploaderCallback *call_back = NULL,
                        bool handle_constraints = false) = 0;
 

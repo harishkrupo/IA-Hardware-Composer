@@ -282,6 +282,7 @@ bool PhysicalDisplay::UpdatePowerMode() {
 
 bool PhysicalDisplay::Present(std::vector<HwcLayer *> &source_layers,
                               int32_t *retire_fence,
+                              void* page_flip_data,
                               PixelUploaderCallback *call_back,
                               bool handle_constraints) {
   CTRACE();
@@ -326,6 +327,7 @@ bool PhysicalDisplay::Present(std::vector<HwcLayer *> &source_layers,
 
   bool ignore_clone_update = false;
   bool success = display_queue_->QueueUpdate(source_layers, retire_fence,
+                                             page_flip_data,
                                              &ignore_clone_update, call_back,
                                              handle_constraints);
   if (success && !clones_.empty() && !ignore_clone_update) {

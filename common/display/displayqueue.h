@@ -66,6 +66,7 @@ class DisplayQueue {
                   FrameBufferManager* frame_buffer_manager);
 
   bool QueueUpdate(std::vector<HwcLayer*>& source_layers, int32_t* retire_fence,
+                   void* page_flip_data,
                    bool* ignore_clone_update, PixelUploaderCallback* call_back,
                    bool handle_constraints);
   bool SetPowerMode(uint32_t power_mode);

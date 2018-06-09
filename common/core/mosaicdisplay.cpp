@@ -171,6 +171,7 @@ bool MosaicDisplay::SetPowerMode(uint32_t power_mode) {
 
 bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
                             int32_t *retire_fence,
+                            void* page_flip_data,
                             PixelUploaderCallback *call_back,
                             bool /*handle_constraints*/) {
   if (power_mode_ != kOn)
@@ -232,7 +233,7 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
       continue;
     }
 
-    display->Present(layers, &fence, call_back, true);
+    display->Present(layers, &fence, NULL, call_back, true);
     IMOSAICDISPLAYTRACE("Present called for Display index %d \n", i);
     if (fence > 0 && (i != preferred_display_index_)) {
       close(fence);

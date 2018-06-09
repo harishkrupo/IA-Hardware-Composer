@@ -75,6 +75,7 @@ void LogicalDisplay::SetHDCPState(HWCContentProtection state,
 
 bool LogicalDisplay::Present(std::vector<HwcLayer *> &source_layers,
                              int32_t *retire_fence,
+                             void* page_flip_data,
                              PixelUploaderCallback *call_back,
                              bool handle_constraints) {
   if (power_mode_ != kOn)

@@ -131,6 +131,10 @@ iahwc_function_ptr_t IAHWC::HookGetFunctionPtr(iahwc_device_t* /* device */,
       return ToHook<IAHWC_PFN_GET_NUM_DISPLAYS>(
           DeviceHook<int32_t, decltype(&IAHWC::GetNumDisplays),
                      &IAHWC::GetNumDisplays, int*>);
+  case IAHWC_FUNC_GET_GPU_FD:
+    return ToHook<IAHWC_PFN_GET_GPU_FD>(
+                                        DeviceHook<int32_t, decltype(&IAHWC::GetGPUFD),
+                                        &IAHWC::GetGPUFD, int*>);
     case IAHWC_FUNC_REGISTER_CALLBACK:
       return ToHook<IAHWC_PFN_REGISTER_CALLBACK>(
           DeviceHook<int32_t, decltype(&IAHWC::RegisterCallback),
@@ -171,7 +175,7 @@ iahwc_function_ptr_t IAHWC::HookGetFunctionPtr(iahwc_device_t* /* device */,
     case IAHWC_FUNC_PRESENT_DISPLAY:
       return ToHook<IAHWC_PFN_PRESENT_DISPLAY>(
           DisplayHook<decltype(&IAHWCDisplay::PresentDisplay),
-                      &IAHWCDisplay::PresentDisplay, int32_t*>);
+          &IAHWCDisplay::PresentDisplay, void*, int32_t*>);
     case IAHWC_FUNC_DISABLE_OVERLAY_USAGE:
       return ToHook<IAHWC_PFN_DISABLE_OVERLAY_USAGE>(
           DisplayHook<decltype(&IAHWCDisplay::DisableOverlayUsage),
@@ -249,6 +253,12 @@ int IAHWC::GetNumDisplays(int* num_displays) {
 
   return IAHWC_ERROR_NONE;
 }
+
+  int IAHWC::GetGPUFD(int* gpu_fd) {
+    *gpu_fd = device_.GetFD();
+
+    return IAHWC_ERROR_NONE;
+  }
 
 int IAHWC::RegisterCallback(int32_t description, uint32_t display_id,
                             iahwc_callback_data_t data,
@@ -364,7 +374,8 @@ int IAHWC::IAHWCDisplay::ClearAllLayers() {
 
   return IAHWC_ERROR_NONE;
 }
-int IAHWC::IAHWCDisplay::PresentDisplay(int32_t* release_fd) {
+
+int IAHWC::IAHWCDisplay::PresentDisplay(void* page_flip_data, int32_t* release_fd) {
   std::vector<hwcomposer::HwcLayer*> layers;
   /*
    * Here the assumption is that the layer index set by the compositor
@@ -381,7 +392,7 @@ int IAHWC::IAHWCDisplay::PresentDisplay(int32_t* release_fd) {
     layers[layer_index] = temp.GetLayer();
   }
 
-  native_display_->Present(layers, release_fd, this);
+  native_display_->Present(layers, release_fd, page_flip_data, this);
 
   return IAHWC_ERROR_NONE;
 }

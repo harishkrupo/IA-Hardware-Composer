@@ -527,7 +527,9 @@ void DisplayQueue::GetCachedLayers(const std::vector<OverlayLayer>& layers,
 }
 
 bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
-                               int32_t* retire_fence, bool* ignore_clone_update,
+                               int32_t* retire_fence,
+                               void* page_flip_data,
+                               bool* ignore_clone_update,
                                PixelUploaderCallback* call_back,
                                bool handle_constraints) {
   CTRACE();
@@ -857,7 +859,7 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
   int32_t fence = 0;
   bool fence_released = false;
   composition_passed =
-      display_->Commit(current_composition_planes, previous_plane_state_,
+    display_->Commit(current_composition_planes, previous_plane_state_, page_flip_data,
                        disable_ovelays, kms_fence_, &fence, &fence_released);
 
   if (fence_released) {
@@ -1080,7 +1082,7 @@ void DisplayQueue::PresentClonedCommit(DisplayQueue* queue) {
   int32_t fence = 0;
   bool fence_released = false;
   composition_passed =
-      display_->Commit(current_composition_planes, previous_plane_state_, false,
+    display_->Commit(current_composition_planes, previous_plane_state_, NULL, false,
                        kms_fence_, &fence, &fence_released);
 
   if (fence_released) {

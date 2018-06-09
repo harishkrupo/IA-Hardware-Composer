@@ -69,6 +69,7 @@ class PhysicalDisplay : public NativeDisplay, public DisplayPlaneHandler {
   bool SetPowerMode(uint32_t power_mode) override;
 
   bool Present(std::vector<HwcLayer *> &source_layers, int32_t *retire_fence,
+               void* page_flip_data,
                PixelUploaderCallback *call_back = NULL,
                bool handle_constraints = false) override;
 
@@ -181,6 +182,7 @@ class PhysicalDisplay : public NativeDisplay, public DisplayPlaneHandler {
    */
   virtual bool Commit(const DisplayPlaneStateList &composition_planes,
                       const DisplayPlaneStateList &previous_composition_planes,
+                      void* page_flip_data,
                       bool disable_explicit_fence, int32_t previous_fence,
                       int32_t *commit_fence, bool *previous_fence_released) = 0;
 
