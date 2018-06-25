@@ -20,10 +20,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <map>
 #include <memory>
 
 #include <nativedisplay.h>
 #include <spinlock.h>
+
+#include "hwcthread.h"
 
 namespace hwcomposer {
 
@@ -113,8 +116,41 @@ class MosaicDisplay : public NativeDisplay {
                     HWCContentType content_type) override;
 
  private:
+  class MosaicDisplayPresenter : public HWCThread {
+   public:
+    MosaicDisplayPresenter();
+    ~MosaicDisplayPresenter();
+
+    bool Initialize();
+    void Present(NativeDisplay *display, int32_t left_constraint,
+                 int32_t total_displays, int32_t display_id,
+                 std::vector<HwcLayer *> *source_layers,
+                 PixelUploaderCallback *call_back);
+    void HandleRoutine() override;
+    void ExitThread();
+    void Wait();
+    int32_t GetReleaseFence() {
+      return release_fence_;
+    }
+
+   private:
+
+    void ClearLayers();
+
+    FDHandler fd_chandler_;
+    HWCEvent cevent_;
+    NativeDisplay *native_display_;
+    int32_t left_constraint_;
+    int32_t release_fence_;
+    int32_t total_displays_;
+    std::vector<HwcLayer *> layers_;
+    int32_t id_;
+    PixelUploaderCallback *callback_;
+    std::vector<HwcLayer *> *source_layers_;
+  };
+
   std::vector<NativeDisplay *> physical_displays_;
-  std::vector<NativeDisplay *> connected_displays_;
+  std::map<NativeDisplay *, MosaicDisplayPresenter> mosaic_presenters_;
   std::shared_ptr<RefreshCallback> refresh_callback_ = NULL;
   std::shared_ptr<VsyncCallback> vsync_callback_ = NULL;
   std::shared_ptr<HotPlugCallback> hotplug_callback_ = NULL;

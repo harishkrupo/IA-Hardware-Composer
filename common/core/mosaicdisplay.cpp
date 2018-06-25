@@ -16,6 +16,7 @@
 
 #include "mosaicdisplay.h"
 
+#include <map>
 #include <sstream>
 #include <string>
 
@@ -176,14 +177,23 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
   if (power_mode_ != kOn)
     return true;
 
+  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
   lock_.lock();
   if (update_connected_displays_) {
-    std::vector<NativeDisplay *>().swap(connected_displays_);
+    ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
     uint32_t size = physical_displays_.size();
     int32_t previous_refresh = 0;
     for (uint32_t i = 0; i < size; i++) {
-      if (physical_displays_.at(i)->IsConnected()) {
-        connected_displays_.emplace_back(physical_displays_.at(i));
+      NativeDisplay *nd = physical_displays_.at(i);
+      if (nd->IsConnected()) {
+        if (mosaic_presenters_.find(nd) == mosaic_presenters_.end()) {
+          mosaic_presenters_.emplace(std::piecewise_construct,
+                                     std::forward_as_tuple(nd),
+                                     std::forward_as_tuple());
+          MosaicDisplayPresenter &mdp = mosaic_presenters_.at(nd);
+          mdp.Initialize();
+        }
+
         for (uint32_t i = 0; i < size; i++) {
           int32_t refresh = 0;
           physical_displays_.at(i)->GetDisplayAttribute(
@@ -191,57 +201,46 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
           if (previous_refresh < refresh)
             preferred_display_index_ = i;
         }
+      } else {
+        if (mosaic_presenters_.find(nd) != mosaic_presenters_.end()) {
+          MosaicDisplayPresenter &mdp = mosaic_presenters_.at(nd);
+          mdp.ExitThread();
+          mosaic_presenters_.erase(nd);
+        }
       }
     }
     update_connected_displays_ = false;
   }
   lock_.unlock();
-  uint32_t size = connected_displays_.size();
+
+  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
+  uint32_t size = mosaic_presenters_.size();
   int32_t left_constraint = 0;
-  size_t total_layers = source_layers.size();
-  int32_t fence = -1;
-  for (uint32_t i = 0; i < size; i++) {
-    NativeDisplay *display = connected_displays_.at(i);
-    int32_t right_constraint = left_constraint + display->Width();
-    std::vector<HwcLayer *> layers;
-    uint32_t dlconstraint = display->GetLogicalIndex() * display->Width();
-    uint32_t drconstraint = dlconstraint + display->Width();
-    IMOSAICDISPLAYTRACE("Display index %d \n", i);
-    IMOSAICDISPLAYTRACE("dlconstraint %d \n", dlconstraint);
-    IMOSAICDISPLAYTRACE("drconstraint %d \n", drconstraint);
-    IMOSAICDISPLAYTRACE("right_constraint %d \n", right_constraint);
-    IMOSAICDISPLAYTRACE("left_constraint %d \n", left_constraint);
-    for (size_t j = 0; j < total_layers; j++) {
-      HwcLayer *layer = source_layers.at(j);
-      const HwcRect<int> &frame_Rect = layer->GetDisplayFrame();
-      if ((frame_Rect.right < left_constraint) ||
-          (frame_Rect.left > right_constraint)) {
-        continue;
-      }
+  int32_t fence = -1, display_id = 0;
 
-      layer->SetLeftConstraint(dlconstraint);
-      layer->SetRightConstraint(drconstraint);
-      layer->SetLeftSourceConstraint(left_constraint);
-      layer->SetRightSourceConstraint(right_constraint);
-      layer->SetTotalDisplays(size - i);
-
-      layers.emplace_back(layer);
-    }
-
-    if (layers.empty()) {
-      continue;
-    }
-
-    display->Present(layers, &fence, call_back, true);
-    IMOSAICDISPLAYTRACE("Present called for Display index %d \n", i);
-    if (fence > 0 && (i != preferred_display_index_)) {
-      close(fence);
-    } else {
-      *retire_fence = fence;
-    }
-
-    left_constraint = right_constraint;
+  for (auto &l : mosaic_presenters_) {
+    NativeDisplay *display = l.first;
+    MosaicDisplayPresenter &mdp = l.second;
+    mdp.Present(display, left_constraint, size, display_id, &source_layers,
+                call_back);
+    left_constraint = left_constraint + display->Width();
+    display_id++;
   }
+
+  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
+  for (auto &l : mosaic_presenters_) {
+    ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
+    MosaicDisplayPresenter &mdp = l.second;
+    mdp.Wait();
+  }
+
+  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
+  // MosaicDisplayPresenter &mdp =
+  //     mosaic_presenters_.at(physical_displays_.at(preferred_display_index_));
+  // *retire_fence = mdp.GetReleaseFence();
+  *retire_fence = -1;
+
+  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
 
   return true;
 }
@@ -509,6 +508,115 @@ void MosaicDisplay::SetHDCPState(HWCContentProtection state,
   uint32_t size = physical_displays_.size();
   for (uint32_t i = 0; i < size; i++) {
     physical_displays_.at(i)->SetHDCPState(state, content_type);
+  }
+}
+
+MosaicDisplay::MosaicDisplayPresenter::MosaicDisplayPresenter()
+    : HWCThread(-8, "MosaicDisplayPresenter") {
+  if (!cevent_.Initialize())
+    return;
+
+  fd_chandler_.AddFd(cevent_.get_fd());
+}
+
+MosaicDisplay::MosaicDisplayPresenter::~MosaicDisplayPresenter() {
+}
+
+bool MosaicDisplay::MosaicDisplayPresenter::Initialize() {
+  if (!InitWorker()) {
+    ETRACE("Failed to initalize MosaicDisplayPresenter. %s", PRINTERROR());
+  }
+  return true;
+}
+
+void MosaicDisplay::MosaicDisplayPresenter::Present(
+    NativeDisplay *display, int32_t left_constraint, int32_t total_displays,
+    int32_t display_id, std::vector<HwcLayer *> *source_layers,
+    PixelUploaderCallback *call_back) {
+  native_display_ = display;
+  left_constraint_ = left_constraint;
+  total_displays_ = total_displays;
+  id_ = display_id;
+  source_layers_ = source_layers;
+  callback_ = call_back;
+  Resume();
+}
+
+  void MosaicDisplay::MosaicDisplayPresenter::ClearLayers() {
+    int32_t i;
+    for (i = 0; i < layers_.size(); i++) {
+      delete layers_.at(i);
+    }
+
+    std::vector<HwcLayer*>().swap(layers_);
+  }
+
+void MosaicDisplay::MosaicDisplayPresenter::HandleRoutine() {
+
+  ClearLayers();
+  int32_t right_constraint = left_constraint_ + native_display_->Width();
+  uint32_t dlconstraint =
+      native_display_->GetLogicalIndex() * native_display_->Width();
+  uint32_t drconstraint = dlconstraint + native_display_->Width();
+  IMOSAICDISPLAYTRACE("Display index %d \n", id_);
+  IMOSAICDISPLAYTRACE("dlconstraint %d \n", dlconstraint);
+  IMOSAICDISPLAYTRACE("drconstraint %d \n", drconstraint);
+  IMOSAICDISPLAYTRACE("right_constraint %d \n", right_constraint);
+  IMOSAICDISPLAYTRACE("left_constraint %d \n", left_constraint);
+
+  size_t total_layers = source_layers_->size();
+  for (size_t j = 0; j < total_layers; j++) {
+    HwcLayer *source_layer = source_layers_->at(j);
+    const HwcRect<int> &frame_Rect = source_layer->GetDisplayFrame();
+    if ((frame_Rect.right < left_constraint_) ||
+        (frame_Rect.left > right_constraint)) {
+      continue;
+    }
+
+    HwcLayer *layer = new HwcLayer();
+    memcpy(layer, source_layer, sizeof(HwcLayer));
+
+    layer->SetLeftConstraint(dlconstraint);
+    layer->SetRightConstraint(drconstraint);
+    layer->SetLeftSourceConstraint(left_constraint_);
+    layer->SetRightSourceConstraint(right_constraint);
+    layer->SetTotalDisplays(total_displays_ - id_);
+
+    layers_.emplace_back(layer);
+  }
+
+  if (layers_.empty()) {
+    return;
+  }
+
+  int32_t fence = -1;
+  native_display_->Present(layers_, &fence, callback_, true);
+
+  if (release_fence_ > 0)
+    close(release_fence_);
+  release_fence_ = fence;
+
+  IMOSAICDISPLAYTRACE("Present called for Display index %d \n", id_);
+  cevent_.Signal();
+}
+
+void MosaicDisplay::MosaicDisplayPresenter::ExitThread() {
+  HWCThread::Exit();
+  ClearLayers();
+  if (release_fence_ > 0)
+    close(release_fence_);
+}
+
+void MosaicDisplay::MosaicDisplayPresenter::Wait() {
+  if (fd_chandler_.Poll(-1) <= 0) {
+    ETRACE("Poll Failed in DisplayManager %s", PRINTERROR());
+    return;
+  }
+
+  if (fd_chandler_.IsReady(cevent_.get_fd())) {
+    // If eventfd_ is ready, we need to wait on it (using read()) to clean
+    // the flag that says it is ready.
+    cevent_.Wait();
   }
 }
 
