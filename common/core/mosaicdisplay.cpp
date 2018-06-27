@@ -23,6 +23,7 @@
 #include <hwclayer.h>
 
 #include "hwctrace.h"
+#include "hwcutils.h"
 
 namespace hwcomposer {
 
@@ -222,18 +223,11 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
                 call_back);
     left_constraint = left_constraint + display->Width();
     display_id++;
-    // mdp.Wait();
-    if (display_id > 0)
-      break;
   }
 
-  display_id = 0;
   for (auto &l : mosaic_presenters_) {
     MosaicDisplayPresenter &mdp = l.second;
     mdp.Wait();
-    display_id++;
-    if (display_id > 0)
-      break;
   }
 
   // MosaicDisplayPresenter &mdp =
@@ -565,6 +559,7 @@ void MosaicDisplay::MosaicDisplayPresenter::HandleRoutine() {
   IMOSAICDISPLAYTRACE("left_constraint %d \n", left_constraint_);
 
   size_t total_layers = source_layers_->size();
+  ALOGE("hkps %s:%d display %d layers %d\n", __PRETTY_FUNCTION__, __LINE__, id_, total_layers);
   for (size_t j = 0; j < total_layers; j++) {
     HwcLayer *source_layer = source_layers_->at(j);
     const HwcRect<int> &frame_Rect = source_layer->GetDisplayFrame();
@@ -582,6 +577,9 @@ void MosaicDisplay::MosaicDisplayPresenter::HandleRoutine() {
     layer->SetRightSourceConstraint(right_constraint);
     layer->SetTotalDisplays(total_displays_ - id_);
 
+    ALOGE("hkps %s:%d layer %d source crop %s\n", __FUNCTION__, __LINE__, j, StringifyRect(layer->GetSourceCrop()).c_str());
+    ALOGE("hkps %s:%d layer %d display frame %s\n", __FUNCTION__, __LINE__, j, StringifyRect(layer->GetDisplayFrame()).c_str());
+    ALOGE("hkps %s:%d layer %d layer damage %s\n", __FUNCTION__, __LINE__, j, StringifyRect(layer->GetLayerDamage()).c_str());
     layers_.emplace_back(layer);
   }
 
