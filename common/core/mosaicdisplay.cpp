@@ -180,7 +180,6 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
   ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
   lock_.lock();
   if (update_connected_displays_) {
-    ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
     uint32_t size = physical_displays_.size();
     int32_t previous_refresh = 0;
     for (uint32_t i = 0; i < size; i++) {
@@ -194,13 +193,11 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
           mdp.Initialize();
         }
 
-        for (uint32_t i = 0; i < size; i++) {
-          int32_t refresh = 0;
-          physical_displays_.at(i)->GetDisplayAttribute(
-              config_, HWCDisplayAttribute::kRefreshRate, &refresh);
-          if (previous_refresh < refresh)
-            preferred_display_index_ = i;
-        }
+        int32_t refresh = 0;
+        physical_displays_.at(i)->GetDisplayAttribute(
+          config_, HWCDisplayAttribute::kRefreshRate, &refresh);
+        if (previous_refresh < refresh)
+          preferred_display_index_ = i;
       } else {
         if (mosaic_presenters_.find(nd) != mosaic_presenters_.end()) {
           MosaicDisplayPresenter &mdp = mosaic_presenters_.at(nd);
@@ -213,10 +210,9 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
   }
   lock_.unlock();
 
-  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
   uint32_t size = mosaic_presenters_.size();
   int32_t left_constraint = 0;
-  int32_t fence = -1, display_id = 0;
+  int32_t display_id = 0;
 
   for (auto &l : mosaic_presenters_) {
     NativeDisplay *display = l.first;
@@ -225,22 +221,14 @@ bool MosaicDisplay::Present(std::vector<HwcLayer *> &source_layers,
                 call_back);
     left_constraint = left_constraint + display->Width();
     display_id++;
-  }
-
-  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
-  for (auto &l : mosaic_presenters_) {
-    ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
-    MosaicDisplayPresenter &mdp = l.second;
     mdp.Wait();
+
+    if (display_id > 0)
+      break;
   }
 
-  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
-  // MosaicDisplayPresenter &mdp =
-  //     mosaic_presenters_.at(physical_displays_.at(preferred_display_index_));
-  // *retire_fence = mdp.GetReleaseFence();
   *retire_fence = -1;
 
-  ALOGE("hkps %s:%d \n", __PRETTY_FUNCTION__, __LINE__);
 
   return true;
 }
@@ -539,13 +527,15 @@ void MosaicDisplay::MosaicDisplayPresenter::Present(
   id_ = display_id;
   source_layers_ = source_layers;
   callback_ = call_back;
-  Resume();
+
+  HandleRoutine();
+  // Resume();
 }
 
   void MosaicDisplay::MosaicDisplayPresenter::ClearLayers() {
-    int32_t i;
+    uint32_t i;
     for (i = 0; i < layers_.size(); i++) {
-      delete layers_.at(i);
+      // delete layers_.at(i);
     }
 
     std::vector<HwcLayer*>().swap(layers_);
@@ -562,9 +552,10 @@ void MosaicDisplay::MosaicDisplayPresenter::HandleRoutine() {
   IMOSAICDISPLAYTRACE("dlconstraint %d \n", dlconstraint);
   IMOSAICDISPLAYTRACE("drconstraint %d \n", drconstraint);
   IMOSAICDISPLAYTRACE("right_constraint %d \n", right_constraint);
-  IMOSAICDISPLAYTRACE("left_constraint %d \n", left_constraint);
+  IMOSAICDISPLAYTRACE("left_constraint %d \n", left_constraint_);
 
   size_t total_layers = source_layers_->size();
+
   for (size_t j = 0; j < total_layers; j++) {
     HwcLayer *source_layer = source_layers_->at(j);
     const HwcRect<int> &frame_Rect = source_layer->GetDisplayFrame();
@@ -573,8 +564,7 @@ void MosaicDisplay::MosaicDisplayPresenter::HandleRoutine() {
       continue;
     }
 
-    HwcLayer *layer = new HwcLayer();
-    memcpy(layer, source_layer, sizeof(HwcLayer));
+    HwcLayer *layer = source_layer;
 
     layer->SetLeftConstraint(dlconstraint);
     layer->SetRightConstraint(drconstraint);
@@ -585,6 +575,7 @@ void MosaicDisplay::MosaicDisplayPresenter::HandleRoutine() {
     layers_.emplace_back(layer);
   }
 
+  ALOGE("hkps %s:%d layers size %d\n", __PRETTY_FUNCTION__, __LINE__, layers_.size());
   if (layers_.empty()) {
     return;
   }

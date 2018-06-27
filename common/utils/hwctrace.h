@@ -132,7 +132,7 @@ class TraceFunc {
 #endif
 
 // Errors
-#define PRINTERROR() strerror(-errno)
+#define PRINTERROR() strerror(errno)
 
 // Helper to abort the execution if object is not initialized.
 // This should never happen if the rules below are followed during design:

@@ -545,8 +545,8 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
   // If last commit failed, lets force full validation as
   // state might be all wrong in our side.
   bool idle_frame = tracker.RenderIdleMode();
-  bool validate_layers =
-      last_commit_failed_update_ || previous_plane_state_.empty();
+  bool validate_layers = true;
+      // last_commit_failed_update_ || previous_plane_state_.empty();
   *retire_fence = -1;
   uint32_t z_order = 0;
   bool has_video_layer = false;

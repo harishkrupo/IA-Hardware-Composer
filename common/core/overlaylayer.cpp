@@ -312,10 +312,9 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
     display_frame_.right =
         (display_frame_.right - left_source_constraint) + left_constraint;
     IMOSAICDISPLAYTRACE(
-        "display_frame_ %d %d %d %d  left_source_constraint: %d "
+        "display_frame_ %s left_source_constraint: %d "
         "left_constraint: %d \n",
-        display_frame_.left, display_frame_.right, display_frame_.top,
-        display_frame_.bottom, left_source_constraint, left_constraint);
+        StringifyRect(display_frame_).c_str(), left_source_constraint, left_constraint);
 
     display_frame_.bottom =
         std::min(max_height, static_cast<uint32_t>(display_frame_.bottom));
@@ -342,10 +341,9 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
       surface_damage_.reset();
     }
     IMOSAICDISPLAYTRACE(
-        "surface_damage_ %d %d %d %d  left_source_constraint: %d "
+        "surface_damage_ %s  left_source_constraint: %d "
         "left_constraint: %d \n",
-        surface_damage_.left, surface_damage_.right, surface_damage_.top,
-        surface_damage_.bottom, left_source_constraint, left_constraint);
+        StringifyRect(surface_damage_).c_str(), left_source_constraint, left_constraint);
 
     // split the source in proportion of frame rect offset for sub displays as:
     // 1. the original source size may be different with the original frame
