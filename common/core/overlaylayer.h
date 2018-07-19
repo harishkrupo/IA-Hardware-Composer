@@ -21,6 +21,7 @@
 #include <platformdefines.h>
 
 #include <hwclayer.h>
+#include <nativedisplay.h>
 #include <memory>
 
 #include "overlaybuffer.h"

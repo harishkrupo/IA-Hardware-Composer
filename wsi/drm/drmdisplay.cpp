@@ -430,7 +430,7 @@ bool DrmDisplay::CommitFrame(
     if (comp_plane.Scanout() && !comp_plane.IsSurfaceRecycled())
       plane->SetBuffer(layer->GetSharedBuffer());
 
-    if (!plane->UpdateProperties(pset, crtc_id_, layer))
+    if (!plane->UpdateProperties(pset, crtc_id_, layer, this))
       return false;
   }
 
@@ -925,7 +925,7 @@ bool DrmDisplay::TestCommit(
   ScopedDrmAtomicReqPtr pset(drmModeAtomicAlloc());
   for (auto i = commit_planes.begin(); i != commit_planes.end(); i++) {
     DrmPlane *plane = static_cast<DrmPlane *>(i->plane);
-    if (!(plane->UpdateProperties(pset.get(), crtc_id_, i->layer, true))) {
+    if (!(plane->UpdateProperties(pset.get(), crtc_id_, i->layer, this, true))) {
       return false;
     }
   }

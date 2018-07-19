@@ -825,6 +825,17 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
   if (render_layers) {
     compositor_.BeginFrame(disable_ovelays);
 
+    DisplayPlaneState& last_plane = current_composition_planes.back();
+    bool needs_composition = last_plane.NeedsOffScreenComposition();
+    bool is_gpu_rotation = last_plane.GetRotationType() == DisplayPlaneState::RotationType::kGPURotation;
+
+    if (needs_composition && is_gpu_rotation && (plane_transform_ != 0)) {
+      for (size_t layer_index = 0; layer_index < size; layer_index++) {
+        OverlayLayer& layer = layers.at(layer_index);
+        layer.SetDisplayFrame(RotateRect(layer.GetDisplayFrame(), display_->Width(), display_->Height(), layer.GetPlaneTransform()));
+      }
+    }
+
     std::vector<HwcRect<int>> layers_rects;
     for (size_t layer_index = 0; layer_index < size; layer_index++) {
       const OverlayLayer& layer = layers.at(layer_index);

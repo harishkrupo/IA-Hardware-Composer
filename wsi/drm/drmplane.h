@@ -26,6 +26,7 @@
 
 #include <vector>
 
+#include <nativedisplay.h>
 #include "displayplane.h"
 #include "drmbuffer.h"
 
@@ -43,7 +44,7 @@ class DrmPlane : public DisplayPlane {
   bool Initialize(uint32_t gpu_fd, const std::vector<uint32_t>& formats);
 
   bool UpdateProperties(drmModeAtomicReqPtr property_set, uint32_t crtc_id,
-                        const OverlayLayer* layer,
+                        const OverlayLayer* layer, const NativeDisplay* display,
                         bool test_commit = false) const;
 
   void SetNativeFence(int32_t fd);

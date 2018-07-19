@@ -133,8 +133,10 @@ void OverlayLayer::ValidateTransform(uint32_t transform,
   std::vector<int> inv_tmap = {kIdentity, kTransform90, kTransform180,
                                kTransform270};
 
+  int mdisplay_transform = display_transform;
   int mtransform =
       transform & (kIdentity | kTransform90 | kTransform180 | kTransform270);
+
   if (tmap.find(mtransform) != tmap.end()) {
     mtransform = tmap[mtransform];
   } else {
@@ -144,8 +146,17 @@ void OverlayLayer::ValidateTransform(uint32_t transform,
     mtransform = kIdentity;
   }
 
+  if (tmap.find(mdisplay_transform) != tmap.end()) {
+    mdisplay_transform = tmap[mdisplay_transform];
+  } else {
+    // reaching here indicates that display_transform is
+    // is an OR of multiple values
+    // Assign Identity in this case
+    mdisplay_transform = kIdentity;
+  }
+
   // The elements {0, 1, 2, 3} form a circulant matrix under mod 4 arithmetic
-  mtransform = (mtransform + display_transform) % 4;
+  mtransform = (mtransform + mdisplay_transform) % 4;
   mtransform = inv_tmap[mtransform];
   plane_transform_ = mtransform;
 
@@ -317,6 +328,7 @@ void OverlayLayer::InitializeFromHwcLayer(
     OverlayLayer* previous_layer, uint32_t z_order, uint32_t layer_index,
     uint32_t max_height, uint32_t rotation, bool handle_constraints,
     FrameBufferManager* frame_buffer_manager) {
+
   display_frame_width_ = layer->GetDisplayFrameWidth();
   display_frame_height_ = layer->GetDisplayFrameHeight();
   display_frame_ = layer->GetDisplayFrame();
@@ -465,15 +477,15 @@ void OverlayLayer::Dump() {
       break;
   }
 
-  if (transform_ & kReflectX)
+  if (plane_transform_ & kReflectX)
     DUMPTRACE("Transform: kReflectX.");
-  if (transform_ & kReflectY)
+  if (plane_transform_ & kReflectY)
     DUMPTRACE("Transform: kReflectY.");
-  if (transform_ & kTransform90)
+  if (plane_transform_ & kTransform90)
     DUMPTRACE("Transform: kTransform90.");
-  else if (transform_ & kTransform180)
+  else if (plane_transform_ & kTransform180)
     DUMPTRACE("Transform: kTransform180.");
-  else if (transform_ & kTransform270)
+  else if (plane_transform_ & kTransform270)
     DUMPTRACE("Transform: kTransform270.");
   else
     DUMPTRACE("Transform: kTransform0.");

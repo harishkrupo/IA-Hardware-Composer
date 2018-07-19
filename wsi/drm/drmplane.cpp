@@ -260,10 +260,10 @@ bool DrmPlane::Initialize(uint32_t gpu_fd,
 
 bool DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
                                 uint32_t crtc_id, const OverlayLayer* layer,
-                                bool test_commit) const {
+                                const NativeDisplay* display, bool test_commit) const {
   uint64_t alpha = 0xFF;
   OverlayBuffer* buffer = layer->GetBuffer();
-  const HwcRect<int>& display_frame = layer->GetDisplayFrame();
+  const HwcRect<int>& display_frame = RotateRect(layer->GetDisplayFrame(), display->Width(), display->Height(), layer->GetPlaneTransform());
   const HwcRect<float>& source_crop = layer->GetSourceCrop();
   int fence = kms_fence_;
   if (test_commit) {

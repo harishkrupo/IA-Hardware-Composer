@@ -166,4 +166,70 @@ std::string StringifyRegion(HwcRegion region) {
   return ss.str();
 }
 
+HwcRect<int> RotateRect(HwcRect<int> rect, int disp_width, int disp_height,
+                        uint32_t transform) {
+  HwcRect<int> display_frame;
+  display_frame.left = 0;
+  display_frame.top = 0;
+  display_frame.right = disp_width;
+  display_frame.bottom = disp_height;
+
+  int ox = 0, oy = 0;
+  HwcRect<int> rotated_rect;
+  HwcRect<float> scaled_rect;
+
+  scaled_rect.left = float(rect.left) / disp_width;
+  scaled_rect.top = float(rect.top) / disp_height;
+  scaled_rect.right = float(rect.right) / disp_width;
+  scaled_rect.bottom = float(rect.bottom) / disp_height;
+
+  if (transform == hwcomposer::HWCTransform::kTransform270) {
+    ox = display_frame.left;
+    oy = display_frame.bottom;
+    rotated_rect.left = ox + scaled_rect.top * disp_width;
+    rotated_rect.top = oy - scaled_rect.right * disp_height;
+    rotated_rect.right = ox + scaled_rect.bottom * disp_width;
+    rotated_rect.bottom = oy - scaled_rect.left * disp_height;
+  } else if (transform == hwcomposer::HWCTransform::kTransform180) {
+    ox = display_frame.right;
+    oy = display_frame.bottom;
+    rotated_rect.left = ox - scaled_rect.right * disp_width;
+    rotated_rect.top = oy - scaled_rect.bottom * disp_height;
+    rotated_rect.right = ox - scaled_rect.left * disp_width;
+    rotated_rect.bottom = oy - scaled_rect.top * disp_height;
+  } else if (transform & hwcomposer::HWCTransform::kTransform90) {
+    if (transform & hwcomposer::HWCTransform::kReflectX) {
+      ox = display_frame.left;
+      oy = display_frame.top;
+      rotated_rect.left = ox + scaled_rect.top * disp_width;
+      rotated_rect.top = oy + scaled_rect.left * disp_height;
+      rotated_rect.right = ox + scaled_rect.bottom * disp_width;
+      rotated_rect.bottom = oy + scaled_rect.right * disp_height;
+    } else if (transform & hwcomposer::HWCTransform::kReflectY) {
+      ox = display_frame.right;
+      oy = display_frame.bottom;
+      rotated_rect.left = ox - scaled_rect.bottom * disp_width;
+      rotated_rect.top = oy - scaled_rect.right * disp_height;
+      rotated_rect.right = ox - scaled_rect.top * disp_width;
+      rotated_rect.bottom = oy - scaled_rect.left * disp_height;
+    } else {
+      ox = display_frame.right;
+      oy = display_frame.top;
+      rotated_rect.left = ox - scaled_rect.bottom * disp_width;
+      rotated_rect.top = oy + scaled_rect.left * disp_height;
+      rotated_rect.right = ox - scaled_rect.top * disp_width;
+      rotated_rect.bottom = oy + scaled_rect.right * disp_height;
+    }
+  } else if (transform == 0) {
+    ox = display_frame.left;
+    oy = display_frame.top;
+    rotated_rect.left = ox + scaled_rect.left * disp_width;
+    rotated_rect.top = oy + scaled_rect.top * disp_height;
+    rotated_rect.right = ox + scaled_rect.right * disp_width;
+    rotated_rect.bottom = oy + scaled_rect.bottom * disp_height;
+  }
+
+  return rotated_rect;
+}
+
 }  // namespace hwcomposer
