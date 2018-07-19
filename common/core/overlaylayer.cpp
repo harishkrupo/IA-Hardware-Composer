@@ -169,6 +169,29 @@ void OverlayLayer::ValidateTransform(uint32_t transform,
   }
 }
 
+void OverlayLayer::TransformSurfaceDamage(HwcLayer* layer) {
+  HwcRect<int> layer_damage = layer->GetSurfaceDamage();
+  HwcRect<int> disp_frame = layer->GetDisplayFrame();
+  int width = imported_buffer_->buffer_->GetWidth();
+  int height = imported_buffer_->buffer_->GetHeight();
+
+  if (layer_damage == disp_frame) {
+    surface_damage_ = layer_damage;
+    return;
+  }
+
+  bool enclosed =
+      Intersection(display_frame_, layer->GetSourceCrop()) == display_frame_;
+
+  surface_damage_ = RotateRect(layer_damage, width, height, transform_);
+
+  if (!enclosed) {
+    surface_damage_ =
+        TranslateRect(surface_damage_, display_frame_.left, display_frame_.top);
+  }
+  return;
+}
+
 void OverlayLayer::InitializeState(HwcLayer* layer,
                                    ResourceManager* resource_manager,
                                    OverlayLayer* previous_layer,
@@ -190,7 +213,6 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
   source_crop_height_ = layer->GetSourceCropHeight();
   source_crop_ = layer->GetSourceCrop();
   blending_ = layer->GetBlending();
-  surface_damage_ = layer->GetLayerDamage();
   if (previous_layer && layer->HasZorderChanged()) {
     if (previous_layer->actual_composition_ == kGpu) {
       CalculateRect(previous_layer->display_frame_, surface_damage_);
@@ -212,6 +234,8 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
 
   SetBuffer(layer->GetNativeHandle(), layer->GetAcquireFence(),
             resource_manager, true, frame_buffer_manager);
+
+  TransformSurfaceDamage(layer);
 
   if (!surface_damage_.empty()) {
     if (type_ == kLayerCursor) {

@@ -59,7 +59,8 @@ void Compositor::Reset() {
 
 bool Compositor::Draw(DisplayPlaneStateList &comp_planes,
                       std::vector<OverlayLayer> &layers,
-                      const std::vector<HwcRect<int>> &display_frame) {
+                      const std::vector<HwcRect<int>> &display_frame,
+                      uint32_t plane_transform) {
   CTRACE();
   const DisplayPlaneState *comp = NULL;
   std::vector<size_t> dedicated_layers;
@@ -110,10 +111,16 @@ bool Compositor::Draw(DisplayPlaneStateList &comp_planes,
       if (surface->ClearSurface()) {
         plane.UpdateDamage(plane.GetDisplayFrame());
       }
+      bool is_gpu_rotation = (plane.GetRotationType() == DisplayPlaneState::RotationType::kGPURotation);
+      HwcRect<int> surface_damage = surface->GetSurfaceDamage();
+
+      if (is_gpu_rotation && (plane_transform != 0)) {
+        surface_damage = RotateRect(surface_damage, surface->GetWidth(), surface->GetHeight(), plane_transform);
+      }
 
       if (regions_empty) {
         SeparateLayers(dedicated_layers, comp->GetSourceLayers(), display_frame,
-                       surface->GetSurfaceDamage(), comp_regions);
+                       surface_damage, comp_regions);
       }
 
       std::vector<size_t>().swap(dedicated_layers);
