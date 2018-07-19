@@ -585,12 +585,12 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
       overlay_layer->InitializeFromScaledHwcLayer(
           layer, resource_manager_.get(), previous_layer, z_order, layer_index,
           display_frame, display_plane_manager_->GetHeight(), plane_transform_,
-          handle_constraints, fb_manager_);
+          handle_constraints, fb_manager_, display_);
     } else {
       overlay_layer->InitializeFromHwcLayer(
           layer, resource_manager_.get(), previous_layer, z_order, layer_index,
           display_plane_manager_->GetHeight(), plane_transform_,
-          handle_constraints, fb_manager_);
+          handle_constraints, fb_manager_, display_);
     }
 
     if (!overlay_layer->IsVisible()) {
@@ -825,6 +825,23 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
   if (render_layers) {
     compositor_.BeginFrame(disable_ovelays);
 
+    DisplayPlaneState& last_plane = current_composition_planes.back();
+    bool needs_composition = last_plane.NeedsOffScreenComposition();
+    bool is_device_rotation =
+        (last_plane.GetRotationType() ==
+         DisplayPlaneState::RotationType::kDisplayRotation);
+    bool local_rotation_applied = false;
+
+    if (needs_composition && is_device_rotation && (plane_transform_ != 0)) {
+      local_rotation_applied = true;
+      for (size_t layer_index = 0; layer_index < size; layer_index++) {
+        OverlayLayer& layer = layers.at(layer_index);
+        layer.SetDisplayFrame(RotateRect(layer.GetDisplayFrame(),
+                                         display_->Width(), display_->Height(),
+                                         layer.GetPlaneTransform()));
+      }
+    }
+
     std::vector<HwcRect<int>> layers_rects;
     for (size_t layer_index = 0; layer_index < size; layer_index++) {
       const OverlayLayer& layer = layers.at(layer_index);
@@ -835,6 +852,21 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
     if (!compositor_.Draw(current_composition_planes, layers, layers_rects)) {
       ETRACE("Failed to prepare for the frame composition. ");
       composition_passed = false;
+    }
+
+    if (local_rotation_applied) {
+      for (size_t layer_index = 0; layer_index < size; layer_index++) {
+        OverlayLayer& layer = layers.at(layer_index);
+        layer.SetDisplayFrame(RotateRect(layer.GetDisplayFrame(),
+                                         display_->Width(), display_->Height(),
+                                         layer.GetPlaneTransform()));
+      }
+
+      const OverlayLayer* layer = last_plane.GetOverlayLayer();
+      NativeSurface* surface = last_plane.GetOffScreenTarget();
+      surface->ResetSourceCrop(RotateRect(layer->GetDisplayFrame(),
+                                          display_->Width(), display_->Height(),
+                                          layer->GetPlaneTransform()));
     }
   }
 
