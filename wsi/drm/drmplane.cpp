@@ -263,12 +263,20 @@ bool DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
                                 const NativeDisplay* display, bool test_commit) const {
   uint64_t alpha = 0xFF;
   OverlayBuffer* buffer = layer->GetBuffer();
-  const HwcRect<int>& display_frame = RotateRect(layer->GetDisplayFrame(), display->Width(), display->Height(), layer->GetPlaneTransform());
+  uint32_t transform = layer->GetTransform();
+  uint32_t plane_transform = layer->GetPlaneTransform();
+
+  HwcRect<int> display_frame = layer->GetDisplayFrame();
+  // if (transform != plane_transform) {
+    display_frame = RotateRect(display_frame, display->Width(), display->Height(), plane_transform);
+  // }
   const HwcRect<float>& source_crop = layer->GetSourceCrop();
   int fence = kms_fence_;
   if (test_commit) {
     fence = layer->GetAcquireFence();
   }
+
+  ALOGE("hkps %s:%d transform %d plane transform %d display frame %s\n", __PRETTY_FUNCTION__, __LINE__, layer->GetTransform(), layer->GetPlaneTransform(), StringifyRect(display_frame).c_str());
 
   if (layer->GetBlending() == HWCBlending::kBlendingPremult)
     alpha = layer->GetAlpha();

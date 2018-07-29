@@ -829,6 +829,7 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
     bool needs_composition = last_plane.NeedsOffScreenComposition();
     bool is_gpu_rotation = last_plane.GetRotationType() == DisplayPlaneState::RotationType::kGPURotation;
 
+    ALOGE("hkps %s:%d gpu rotation %d\n", __PRETTY_FUNCTION__, __LINE__, is_gpu_rotation);
     if (needs_composition && is_gpu_rotation && (plane_transform_ != 0)) {
       for (size_t layer_index = 0; layer_index < size; layer_index++) {
         OverlayLayer& layer = layers.at(layer_index);
@@ -846,6 +847,13 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
     if (!compositor_.Draw(current_composition_planes, layers, layers_rects, plane_transform_)) {
       ETRACE("Failed to prepare for the frame composition. ");
       composition_passed = false;
+    }
+
+    if (composition_passed && needs_composition && is_gpu_rotation && (plane_transform_ != 0)) {
+      for (size_t layer_index = 0; layer_index < size; layer_index++) {
+        OverlayLayer& layer = layers.at(layer_index);
+        layer.SetDisplayFrame(RotateRect(layer.GetDisplayFrame(), display_->Width(), display_->Height(), layer.GetPlaneTransform()));
+      }
     }
   }
 
