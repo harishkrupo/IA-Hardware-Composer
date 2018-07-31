@@ -231,6 +231,8 @@ std::string StringifyRect(HwcRect<int> rect);
  */
 std::string StringifyRegion(HwcRegion region);
 
+  HwcRect<int> RotateRect(HwcRect<int> rect, int disp_width, int disp_height,
+                          uint32_t transform);
 }  // namespace hwcomposer
 
 #endif  // COMMON_UTILS_HWCUTILS_H_
