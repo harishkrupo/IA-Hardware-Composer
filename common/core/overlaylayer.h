@@ -243,7 +243,7 @@ struct OverlayLayer {
   // layer at same z order.
   void ValidatePreviousFrameState(OverlayLayer* rhs, HwcLayer* layer);
 
-  void TransformSurfaceDamage(HwcLayer* layer);
+  void TransformSurfaceDamage(HwcLayer* layer, uint32_t rotation);
 
   // Check if we want to use a separate overlay for this
   // layer.

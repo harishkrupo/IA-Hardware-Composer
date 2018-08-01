@@ -833,12 +833,22 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
     bool local_rotation_applied = false;
 
     if (needs_composition && is_device_rotation && (plane_transform_ != 0)) {
+      ALOGE("hkps %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
       local_rotation_applied = true;
       for (size_t layer_index = 0; layer_index < size; layer_index++) {
         OverlayLayer& layer = layers.at(layer_index);
-        layer.SetDisplayFrame(RotateRect(layer.GetDisplayFrame(),
-                                         display_->Width(), display_->Height(),
-                                         layer.GetPlaneTransform()));
+        int width = display_->Width();
+        int height = display_->Height();
+        uint32_t transform = layer.GetPlaneTransform();
+        HwcRect<int> rect = RotateRect(layer.GetDisplayFrame(),
+                                       width, height,
+                                       transform);
+        if (transform & (hwcomposer::HWCTransform::kTransform270 | hwcomposer::HWCTransform::kTransform90)) {
+          float x_scale = float(width) / height;
+          float y_scale = float(height) / width;
+          rect = ScaleRect(rect, x_scale, y_scale);
+        }
+        layer.SetDisplayFrame(rect);
       }
     }
 
@@ -858,16 +868,34 @@ bool DisplayQueue::QueueUpdate(std::vector<HwcLayer*>& source_layers,
     if (local_rotation_applied) {
       for (size_t layer_index = 0; layer_index < size; layer_index++) {
         OverlayLayer& layer = layers.at(layer_index);
-        layer.SetDisplayFrame(RotateRect(layer.GetDisplayFrame(),
-                                         display_->Width(), display_->Height(),
-                                         layer.GetPlaneTransform()));
+        int width = display_->Width();
+        int height = display_->Height();
+        uint32_t transform = layer.GetPlaneTransform();
+        HwcRect<int> rect = RotateRect(layer.GetDisplayFrame(),
+                                       width, height,
+                                       transform);
+        if (transform & (hwcomposer::HWCTransform::kTransform270 | hwcomposer::HWCTransform::kTransform90)) {
+          float x_scale = float(width) / height;
+          float y_scale = float(height) / width;
+          rect = ScaleRect(rect, x_scale, y_scale);
+        }
+        layer.SetDisplayFrame(rect);
       }
 
       const OverlayLayer* layer = last_plane.GetOverlayLayer();
       NativeSurface* surface = last_plane.GetOffScreenTarget();
-      surface->ResetSourceCrop(RotateRect(layer->GetDisplayFrame(),
-                                          display_->Width(), display_->Height(),
-                                          layer->GetPlaneTransform()));
+      int width = display_->Width();
+      int height = display_->Height();
+      uint32_t transform = layer->GetPlaneTransform();
+      HwcRect<int> rect = RotateRect(layer->GetDisplayFrame(),
+                                     width, height,
+                                     transform);
+      if (transform & (hwcomposer::HWCTransform::kTransform270 | hwcomposer::HWCTransform::kTransform90)) {
+        float x_scale = float(width) / height;
+        float y_scale = float(height) / width;
+        rect = ScaleRect(rect, x_scale, y_scale);
+      }
+      surface->ResetSourceCrop(rect);
     }
   }
 

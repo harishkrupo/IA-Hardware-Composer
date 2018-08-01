@@ -117,8 +117,16 @@ bool Compositor::Draw(DisplayPlaneStateList &comp_planes,
            DisplayPlaneState::RotationType::kDisplayRotation);
       HwcRect<int> surface_damage = surface->GetSurfaceDamage();
       if (is_display_rotation && (plane_transform != 0)) {
-        surface_damage = RotateRect(surface_damage, surface->GetWidth(),
-                                    surface->GetHeight(), plane_transform);
+        int width = surface->GetWidth();
+        int height = surface->GetHeight();
+        HwcRect<int> rect = RotateRect(surface_damage, width,
+                                       height, plane_transform);
+        if (plane_transform & (hwcomposer::HWCTransform::kTransform270 | hwcomposer::HWCTransform::kTransform90)) {
+          float x_scale = float(width) / height;
+          float y_scale = float(height) / width;
+          rect = ScaleRect(rect, x_scale, y_scale);
+        }
+        surface_damage = rect;
       }
 
       if (regions_empty) {

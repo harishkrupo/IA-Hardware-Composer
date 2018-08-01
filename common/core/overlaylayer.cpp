@@ -169,28 +169,46 @@ void OverlayLayer::ValidateTransform(uint32_t transform,
   }
 }
 
-void OverlayLayer::TransformSurfaceDamage(HwcLayer* layer) {
-  HwcRect<int> layer_damage = layer->GetSurfaceDamage();
-  HwcRect<int> disp_frame = layer->GetDisplayFrame();
-  int width = imported_buffer_->buffer_->GetWidth();
-  int height = imported_buffer_->buffer_->GetHeight();
+  void OverlayLayer::TransformSurfaceDamage(HwcLayer* layer, uint32_t rotation) {
+      HwcRect<int> layer_damage = layer->GetSurfaceDamage();
+      HwcRect<int> disp_frame = layer->GetDisplayFrame();
+      int width = imported_buffer_->buffer_->GetWidth();
+      int height = imported_buffer_->buffer_->GetHeight();
+      int w = layer->GetSourceCropWidth();
+      int h = layer->GetSourceCropHeight();
+      ALOGE("hkps ======================\n");
+      ALOGE("hkps %s:%d width height (%d %d)\n", __PRETTY_FUNCTION__, __LINE__, width, height);
+      ALOGE("hkps %s:%d crop width height (%d %d)\n", __PRETTY_FUNCTION__, __LINE__, w, h);
 
-  if (layer_damage == disp_frame) {
-    surface_damage_ = layer_damage;
-    return;
-  }
+      if (layer_damage == disp_frame) {
+        surface_damage_ = layer_damage;
+        return;
+      }
 
-  bool enclosed =
-      Intersection(display_frame_, layer->GetSourceCrop()) == display_frame_;
+      bool enclosed =
+        Intersection(display_frame_, layer->GetSourceCrop()) == display_frame_;
 
-  surface_damage_ = RotateRect(layer_damage, width, height, plane_transform_);
+      ALOGE("hkps %s:%d display frame %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(disp_frame).c_str());
+      ALOGE("hkps %s:%d source crop %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(layer->GetSourceCrop()).c_str());
 
-  if (!enclosed) {
-    surface_damage_ =
-        TranslateRect(surface_damage_, display_frame_.left, display_frame_.top);
-  }
-  return;
-}
+      ALOGE("hkps %s:%d pre surface damage %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(layer_damage).c_str());
+      surface_damage_ = RotateRect(layer_damage, w, h, plane_transform_);
+      ALOGE("hkps %s:%d rotated surface damage %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(surface_damage_).c_str());
+
+      if ((rotation != 0) && (plane_transform_ & (hwcomposer::HWCTransform::kTransform270 | hwcomposer::HWCTransform::kTransform90))) {
+        float x_scale = float(display_width_) / display_height_;
+        float y_scale = float(display_height_) / display_width_;
+        surface_damage_ = ScaleRect(surface_damage_, x_scale, y_scale);
+      }
+
+      if (!enclosed) {
+        surface_damage_ =
+          TranslateRect(surface_damage_, display_frame_.left, display_frame_.top);
+        ALOGE("hkps %s:%d translated surface damage %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(surface_damage_).c_str());
+      }
+
+      return;
+    }
 
 void OverlayLayer::InitializeState(HwcLayer* layer,
                                    ResourceManager* resource_manager,
@@ -202,8 +220,17 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
   transform_ = layer->GetTransform();
   if (rotation != kRotateNone) {
     ValidateTransform(layer->GetTransform(), rotation);
-    SetDisplayFrame(RotateRect(layer->GetDisplayFrame(), display_width_,
-                               display_height_, plane_transform_));
+    ALOGE("hkps %s:%d pre rotated display frame %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(layer->GetDisplayFrame()).c_str());
+    HwcRect<int> rect = RotateRect(layer->GetDisplayFrame(), display_width_,
+                                   display_height_, plane_transform_);
+    ALOGE("hkps %s:%d rotated display frame %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(rect).c_str());
+    if (plane_transform_ & (hwcomposer::HWCTransform::kTransform270 | hwcomposer::HWCTransform::kTransform90)) {
+      float x_scale = float(display_width_) / display_height_;
+      float y_scale = float(display_height_) / display_width_;
+      rect = ScaleRect(rect, x_scale, y_scale);
+      ALOGE("hkps %s:%d scaled display frame %s\n", __PRETTY_FUNCTION__, __LINE__, StringifyRect(rect).c_str());
+    }
+    SetDisplayFrame(rect);
   } else {
     plane_transform_ = transform_;
   }
@@ -237,7 +264,7 @@ void OverlayLayer::InitializeState(HwcLayer* layer,
   SetBuffer(layer->GetNativeHandle(), layer->GetAcquireFence(),
             resource_manager, true, frame_buffer_manager);
 
-  TransformSurfaceDamage(layer);
+  TransformSurfaceDamage(layer, rotation);
 
   if (!surface_damage_.empty()) {
     if (type_ == kLayerCursor) {
