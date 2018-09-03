@@ -93,6 +93,10 @@ class HwcService : public BnService {
 
     status_t EnableHDCPSessionForAllDisplays(EHwcsContentType content_type);
 
+    status_t GetHDCPStatusForDisplay(uint32_t display);
+
+    status_t GetHDCPStatusForAllDisplays();
+
     status_t DisableHDCPSessionForDisplay(uint32_t display);
 
     status_t DisableHDCPSessionForAllDisplays();

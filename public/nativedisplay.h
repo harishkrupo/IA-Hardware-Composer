@@ -404,6 +404,15 @@ class NativeDisplay {
                             HWCContentType /*content_type*/) {
   }
 
+  /**
+   * Call this to get HDCP state for this display. This function
+   * tries to take advantage of any HDCP support advertised by
+   * the Kernel.
+   */
+  virtual bool GetHDCPState() {
+
+  }
+
   virtual const NativeBufferHandler *GetNativeBufferHandler() const {
     return NULL;
   }

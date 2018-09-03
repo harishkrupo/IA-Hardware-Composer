@@ -125,6 +125,8 @@ class LogicalDisplay : public NativeDisplay {
   void SetHDCPState(HWCContentProtection state,
                     HWCContentType content_type) override;
 
+  bool GetHDCPState();
+
  private:
   LogicalDisplayManager *logical_display_manager_;
   NativeDisplay *physical_display_;

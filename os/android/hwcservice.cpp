@@ -376,6 +376,17 @@ status_t HwcService::Controls::EnableHDCPSessionForAllDisplays(
   return OK;
 }
 
+  status_t HwcService::Controls::GetHDCPStatusForDisplay(
+    uint32_t display) {
+    mHwc.EnableHDCPSessionForDisplay(display);
+    return OK;
+  }
+
+  status_t HwcService::Controls::GetHDCPStatusForAllDisplays() {
+    mHwc.EnableHDCPSessionForDisplay(display, content_type);
+    return OK;
+  }
+
 status_t HwcService::Controls::DisableHDCPSessionForDisplay(uint32_t display) {
   mHwc.DisableHDCPSessionForDisplay(display);
   return OK;

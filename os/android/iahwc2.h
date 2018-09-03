@@ -56,6 +56,10 @@ class IAHWC2 : public hwc2_device_t {
 
   void EnableHDCPSessionForAllDisplays(EHwcsContentType content_type);
 
+  uint32_t GetHDCPStatusForDisplay(uint32_t display);
+
+  uint32_t GetHDCPStatusForAllDisplays();
+
   void DisableHDCPSessionForDisplay(uint32_t display);
 
   void DisableHDCPSessionForAllDisplays();

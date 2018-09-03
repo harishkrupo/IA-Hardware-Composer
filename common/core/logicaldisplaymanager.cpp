@@ -231,4 +231,14 @@ void LogicalDisplayManager::SetHDCPState(HWCContentProtection state,
   }
 }
 
+  bool LogicalDisplayManager::GetHDCPState() {
+    uint32_t size = displays_.size();
+    bool ret = true;
+    for (uint32_t i = 0; i < size; i++) {
+      ret = ret & displays_.at(i)->SetHDCPState(state, content_type);
+    }
+
+    return ret;
+  }
+
 }  // namespace hwcomposer

@@ -1238,6 +1238,14 @@ void IAHWC2::EnableHDCPSessionForAllDisplays(EHwcsContentType content_type) {
   device_.EnableHDCPSessionForAllDisplays(type);
 }
 
+  uint32_t GetHDCPStatusForDisplay(uint32_t display) {
+
+  }
+
+  uint32_t GetHDCPStatusForAllDisplays() {
+
+  }
+
 void IAHWC2::DisableHDCPSessionForDisplay(uint32_t display) {
   device_.DisableHDCPSessionForDisplay(display);
 }

@@ -602,6 +602,11 @@ void GpuDevice::EnableHDCPSessionForAllDisplays(HWCContentType content_type) {
   }
 }
 
+
+  bool GetHDCPStatusForDisplay(uint32_t display);
+
+  bool GetHDCPStatusForAllDisplays();
+
 void GpuDevice::DisableHDCPSessionForDisplay(uint32_t display) {
   if (total_displays_.size() <= display) {
     ETRACE("Tried to enable HDCP for invalid display %u \n", display);

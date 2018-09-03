@@ -73,6 +73,10 @@ void LogicalDisplay::SetHDCPState(HWCContentProtection state,
   logical_display_manager_->SetHDCPState(state, content_type);
 }
 
+  bool LogicalDisplay::GetHDCPState() {
+    return logical_display_manager_->GetHDCPState(state, content_type);
+  }
+
 bool LogicalDisplay::Present(std::vector<HwcLayer *> &source_layers,
                              int32_t *retire_fence,
                              PixelUploaderCallback *call_back,

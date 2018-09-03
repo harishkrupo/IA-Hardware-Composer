@@ -56,6 +56,8 @@ class DrmDisplay : public PhysicalDisplay {
   void SetHDCPState(HWCContentProtection state,
                     HWCContentType content_type) override;
 
+  bool GetHDCPState() override;
+
   bool InitializeDisplay() override;
   void PowerOn() override;
   void UpdateDisplayConfig() override;

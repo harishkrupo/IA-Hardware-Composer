@@ -74,6 +74,10 @@ class GpuDevice : public HWCThread {
   // content_type.
   void EnableHDCPSessionForAllDisplays(HWCContentType content_type);
 
+  bool GetHDCPStatusForDisplay(uint32_t display);
+
+  bool GetHDCPStatusForAllDisplays();
+
   // The control disables the usage of HDCP for all planes supporting this
   // feature on display.
   void DisableHDCPSessionForDisplay(uint32_t display);

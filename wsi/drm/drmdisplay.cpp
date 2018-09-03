@@ -360,6 +360,31 @@ void DrmDisplay::SetHDCPState(HWCContentProtection state,
   ETRACE("Ignored Content type. \n");
 }
 
+  bool DrmDisplay::GetHDCPState() {
+    desired_protection_support_ = state;
+    content_type_ = content_type;
+    if (desired_protection_support_ == current_protection_support_)
+      return;
+
+    if (hdcp_id_prop_ <= 0) {
+      ETRACE("Cannot set HDCP state as Connector property is not supported \n");
+      return;
+    }
+
+    if (!(connection_state_ & kConnected)) {
+      return;
+    }
+
+    current_protection_support_ = desired_protection_support_;
+    uint32_t value = 0;
+    if (current_protection_support_ == kDesired) {
+      value = 1;
+    }
+
+    drmModeConnectorSetProperty(gpu_fd_, connector_, hdcp_id_prop_, value);
+    ETRACE("Ignored Content type. \n");
+  }
+
 bool DrmDisplay::Commit(
     const DisplayPlaneStateList &composition_planes,
     const DisplayPlaneStateList &previous_composition_planes,
