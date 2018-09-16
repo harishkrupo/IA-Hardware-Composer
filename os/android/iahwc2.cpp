@@ -474,11 +474,18 @@ HWC2::Error IAHWC2::HwcDisplay::GetClientTargetSupport(uint32_t width,
 HWC2::Error IAHWC2::HwcDisplay::GetColorModes(uint32_t *num_modes,
                                               int32_t *modes) {
   supported(__func__);
-  if (!modes)
-    *num_modes = 1;
 
-  if (modes)
-    *modes = HAL_COLOR_MODE_NATIVE;
+  uint32_t count = 1;
+  if (display_->GetDCIP3Support())
+    count++;
+
+  *num_modes = count;
+
+  if (modes) {
+    modes[--count] = HAL_COLOR_MODE_NATIVE;
+    if (display_->GetDCIP3Support())
+      modes[--count] = HAL_COLOR_MODE_DCI_P3;
+  }
 
   return HWC2::Error::None;
 }
