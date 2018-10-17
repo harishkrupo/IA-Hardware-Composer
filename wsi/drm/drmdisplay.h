@@ -53,7 +53,7 @@ class DrmDisplay : public PhysicalDisplay {
 
   bool SetBroadcastRGB(const char *range_property) override;
 
-  void SetHDCPState(HWCContentProtection state,
+  bool SetHDCPState(HWCContentProtection state,
                     HWCContentType content_type) override;
   void SetHDCPSRM(const int8_t *SRM, uint32_t SRMLength) override;
 
@@ -108,6 +108,31 @@ class DrmDisplay : public PhysicalDisplay {
   void HandleLazyInitialization() override;
 
  private:
+  class DrmHDCPThread : public HWCThread {
+   public:
+    DrmHDCPThread(uint32_t gpu_fd, uint32_t connector, uint32_t hdcp_id,
+                  uint32_t hdcp_cp_id);
+    ~DrmHDCPThread() {
+      Exit();
+    }
+
+    bool SetHDCPState(bool enable, uint32_t type);
+
+   protected:
+    void HandleRoutine() override;
+    void HandleWait() override;
+
+   private:
+    bool DrmConnectorSetupHDCP();
+    bool CheckHDCPStatus();
+    uint32_t gpu_fd_;
+    uint32_t connector_;
+    uint32_t hdcp_id_;
+    uint32_t hdcp_cp_id_;
+    bool current_state_ = false;
+    uint32_t cp_type_ = 0;
+  };
+
   void ShutDownPipe();
   void GetDrmObjectPropertyValue(const char *name,
                                  const ScopedDrmObjectPropertyPtr &props,
@@ -154,7 +179,6 @@ class DrmDisplay : public PhysicalDisplay {
   uint32_t old_blob_id_ = 0;
   uint32_t active_prop_ = 0;
   uint32_t mode_id_prop_ = 0;
-  uint32_t hdcp_id_prop_ = 0;
   uint32_t hdcp_srm_id_prop_ = 0;
   uint32_t edid_prop_ = 0;
   uint32_t canvas_color_prop_ = 0;
@@ -164,15 +188,12 @@ class DrmDisplay : public PhysicalDisplay {
   int64_t broadcastrgb_full_ = -1;
   int64_t broadcastrgb_automatic_ = -1;
   uint32_t flags_ = DRM_MODE_ATOMIC_ALLOW_MODESET;
-  HWCContentProtection current_protection_support_ =
-      HWCContentProtection::kUnSupported;
-  HWCContentProtection desired_protection_support_ =
-      HWCContentProtection::kUnSupported;
   drmModeModeInfo current_mode_;
-  HWCContentType content_type_ = kCONTENT_TYPE0;
   std::vector<drmModeModeInfo> modes_;
   SpinLock display_lock_;
+  bool protection_changed = false;
   DrmDisplayManager *manager_;
+  std::unique_ptr<DrmHDCPThread> hdcp_thread_;
 };
 
 }  // namespace hwcomposer
