@@ -794,11 +794,7 @@ void DisplayPlaneManager::EnsureOffScreenTarget(DisplayPlaneState &plane) {
       plane.IsVideoPlane() && (plane.GetSourceLayers().size() == 1);
   uint32_t preferred_format = 0;
   uint32_t usage = hwcomposer::kLayerNormal;
-  if (video_separate) {
-    preferred_format = plane.GetDisplayPlane()->GetPreferredVideoFormat();
-  } else {
     preferred_format = plane.GetDisplayPlane()->GetPreferredFormat();
-  }
 
   uint64_t modifier = plane.GetDisplayPlane()->GetPreferredFormatModifier();
   if (plane.IsVideoPlane())

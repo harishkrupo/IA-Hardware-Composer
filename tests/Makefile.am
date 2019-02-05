@@ -17,7 +17,8 @@ if ENABLE_DUMMY_COMPOSITOR
     AM_CPPFLAGS = -DUSE_DC
 else
 bin_PROGRAMS = testlayers \
-	       linux_test
+	       linux_test \
+		   p010-test
 
 testlayers_LDFLAGS = \
 	-no-undefined
@@ -49,6 +50,26 @@ testlayers_SOURCES = \
     ./common/esTransform.cpp \
     ./common/jsonhandlers.cpp \
     ./apps/jsonlayerstest.cpp
+
+p010_test_LDADD = \
+	$(DRM_LIBS) \
+	$(DRM_INTEL_LIBS) \
+	$(GBM_LIBS) \
+	$(EGL_LIBS) \
+	$(GLES2_LIBS) \
+	$(top_builddir)/libhwcomposer.la
+
+p010_test_CFLAGS = \
+	-O0 -g -lm \
+	$(DRM_CFLAGS) \
+	$(DRM_INTEL_CFLAGS) \
+	$(GBM_CFLAGS) \
+	$(EGL_CFLAGS) \
+	$(GLES2_CFLAGS) \
+        $(AM_CPPFLAGS)
+
+p010_test_SOURCES = \
+    ./apps/p010_image_test.cpp
 
 linux_test_LDFLAGS = \
 	-no-undefined
