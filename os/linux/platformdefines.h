@@ -66,7 +66,7 @@ extern "C" {
 inline uint32_t GetNativeBuffer(uint32_t gpu_fd, HWCNativeHandle handle) {
   uint32_t id = 0;
   uint32_t prime_fd = -1;
-  if (!handle->meta_data_.fb_modifiers_[0]) {
+  if (!handle->meta_data_.fb_modifiers_[0] && !handle->meta_data_.num_planes_) {
     prime_fd = handle->import_data.fd_data.fd;
   } else {
     prime_fd = handle->import_data.fd_modifier_data.fds[0];

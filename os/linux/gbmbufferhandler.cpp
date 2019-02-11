@@ -219,7 +219,7 @@ void GbmBufferHandler::CopyHandle(HWCNativeHandle source,
                                   HWCNativeHandle *target) const {
   struct gbm_handle *temp = new struct gbm_handle();
 
-  if (!source->meta_data_.fb_modifiers_[0]) {
+  if (!source->meta_data_.fb_modifiers_[0] && !source->meta_data_.num_planes_) {
     temp->import_data.fd_data.width = source->import_data.fd_data.width;
     temp->import_data.fd_data.height = source->import_data.fd_data.height;
     temp->import_data.fd_data.format = source->import_data.fd_data.format;
@@ -271,7 +271,7 @@ bool GbmBufferHandler::ImportBuffer(HWCNativeHandle handle) const {
   uint64_t mod = 0;
 
   if (!handle->imported_bo) {
-    if (!handle->meta_data_.fb_modifiers_[0]) {
+    if (!handle->meta_data_.fb_modifiers_[0] && !handle->meta_data_.num_planes_) {
       use_modifier = false;
       meta->format_ = handle->import_data.fd_data.format;
       meta->native_format_ = handle->import_data.fd_data.format;
